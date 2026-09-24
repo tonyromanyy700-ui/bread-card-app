@@ -98,7 +98,6 @@
       backdrop-filter: blur(5px);
     }
 
-    /* --- تصميم البطاقة التفاعلية --- */
     .smart-card-container { perspective: 1000px; margin-bottom: 15px; }
     .smart-card-inner {
       width: 100%;
@@ -171,7 +170,7 @@
 
     .input-group { margin-bottom: 12px; }
     label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: var(--subtext); font-weight: 600; }
-    select, input[type="number"], input[type="text"], input[type="date"] {
+    select, input[type="number"], input[type="text"], input[type="date"], input[type="file"] {
       width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; background: var(--input-bg); color: var(--text);
     }
 
@@ -209,7 +208,7 @@
       <button class="theme-toggle-btn" id="themeBtn" onclick="toggleTheme()" title="تغيير المظهر">🌙</button>
       <h1>💳 بطاقة الأسرة والتموين</h1>
       <p>تذكير وتتبع حصص الخبز والسلع التموينية</p>
-      <div class="developer-badge">👨‍💻 تطوير: Eng. Tony </div>
+      <div class="developer-badge">👨‍💻 تطوير: Eng. Tony</div>
     </header>
 
     <!-- البطاقة الذكية -->
@@ -324,15 +323,24 @@
         <input type="number" id="members" min="1" max="10" value="3" onchange="updateQuota(); saveSettings(); updatePreview();">
       </div>
 
+      <!-- قسم اختيار النغمة والملفات الخارجية -->
       <div class="input-group">
         <label for="alarmSoundSelect">🔔 اختر نغمة التنبيه والإشعارات:</label>
         <div style="display: flex; gap: 8px;">
-          <select id="alarmSoundSelect" onchange="saveSettings()">
+          <select id="alarmSoundSelect" onchange="handleSoundSelectChange(); saveSettings();">
             <option value="1">نغمة 1: جرس تنبيه عالي 🔔</option>
             <option value="2">نغمة 2: صفارة إنذار قوية 🚨</option>
             <option value="3">نغمة 3: نغمة ثلاثية حادة 🎼</option>
+            <option value="custom">📁 ملف صوتي/ترنيمة/أغنية من الجهاز</option>
           </select>
           <button type="button" onclick="playSelectedSound()" style="padding: 0 12px; background: var(--gold); border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: #000;">▶️ تجربة</button>
+        </div>
+
+        <!-- حقل رفع ملف صوتي مخصص -->
+        <div id="customSoundContainer" style="display: none; margin-top: 10px;">
+          <label for="customAudioInput" style="font-size: 0.8rem; color: var(--primary); font-weight: bold;">اختر ملف صوتي (MP3/WAV) من هاتفك:</label>
+          <input type="file" id="customAudioInput" accept="audio/*" onchange="handleCustomAudioUpload(event)">
+          <div id="customAudioName" style="font-size: 0.78rem; color: var(--subtext); margin-top: 5px; font-weight: 600;"></div>
         </div>
       </div>
 
@@ -364,6 +372,7 @@
 
   <script>
     const daysArabic = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    let customAudioBase64 = localStorage.getItem('bread_custom_audio') || null;
 
     function flipCard() {
       document.getElementById('smartCard').classList.toggle('flipped');
@@ -393,8 +402,55 @@
       }
     }
 
+    function handleSoundSelectChange() {
+      const soundType = document.getElementById('alarmSoundSelect').value;
+      const container = document.getElementById('customSoundContainer');
+      if (soundType === 'custom') {
+        container.style.display = 'block';
+      } else {
+        container.style.display = 'none';
+      }
+    }
+
+    function handleCustomAudioUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('تنبيه: الملف كبير جداً. يُفضل اختيار مقطع صوتي بحجم أقل من 5 ميجابايت.');
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        customAudioBase64 = e.target.result;
+        try {
+          localStorage.setItem('bread_custom_audio', customAudioBase64);
+          localStorage.setItem('bread_custom_audio_name', file.name);
+          document.getElementById('customAudioName').innerText = '🎵 الملف المعتمد: ' + file.name;
+          alert('تم حفظ الملف الصوتي بنجاح! 🎉');
+        } catch (err) {
+          alert('الملف الصوتي كبير جداً على الذاكرة المحلية، يرجى اختيار ملف أصغر حجماً.');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
     function playSelectedSound() {
       const soundType = document.getElementById('alarmSoundSelect').value;
+
+      if (soundType === "custom") {
+        if (!customAudioBase64) {
+          alert("يرجى اختيار ملف صوتي من جهازك أولاً من الزر أدناه!");
+          return;
+        }
+        const audio = new Audio(customAudioBase64);
+        audio.play().catch(e => {
+          alert("حدث خطأ أثناء تشغيل الملف الصوتي.");
+          console.log(e);
+        });
+        return;
+      }
+
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       
       if (soundType === "1") {
@@ -673,7 +729,15 @@
       updateUserName();
 
       const savedSound = localStorage.getItem('bread_alarm_sound');
-      if (savedSound) document.getElementById('alarmSoundSelect').value = savedSound;
+      if (savedSound) {
+        document.getElementById('alarmSoundSelect').value = savedSound;
+      }
+      handleSoundSelectChange();
+
+      const savedAudioName = localStorage.getItem('bread_custom_audio_name');
+      if (savedAudioName) {
+        document.getElementById('customAudioName').innerText = '🎵 الملف المعتمد: ' + savedAudioName;
+      }
     }
 
     window.onload = function() {
