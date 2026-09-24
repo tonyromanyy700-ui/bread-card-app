@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bread-card-v3';
+const CACHE_NAME = 'bread-card-v4';
 const urlsToCache = [
   './',
   './index.html',
