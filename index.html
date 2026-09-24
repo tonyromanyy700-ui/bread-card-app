@@ -183,6 +183,7 @@
     .btn-secondary { background: #6c757d; margin-top: 10px; font-size: 0.82rem; padding: 8px; }
     .btn-success { background: #1b5e20; }
     .btn-claimed { background: #455a64; color: #fff; }
+    .btn-notif { background: #0288d1; margin-top: 5px; font-size: 0.85rem; padding: 10px; }
 
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .stat-box { background: var(--bg); padding: 10px; border-radius: 10px; text-align: center; border: 1px solid var(--border); }
@@ -224,7 +225,7 @@
             <div style="font-size: 0.75rem; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">بطاقة ذكية نموذجية</div>
           </div>
           <div class="card-data-fields">
-            <div class="card-holder-name" id="cardHolderDisplay">مستخدم جديد</div>
+            <div class="card-holder-name" id="cardHolderDisplay">صاحب البطاقة</div>
             <div class="card-number-display">•••• •••• ••••</div>
           </div>
         </div>
@@ -259,6 +260,24 @@
     </button>
     <div style="font-size: 0.75rem; text-align: center; color: var(--subtext); margin: 6px 0 15px 0;">
       اضغط فور الصرف ليتم التسجيل والحساب التلقائي فوراً.
+    </div>
+
+    <!-- حاسبة نقاط الخبز (جديد) -->
+    <div class="card">
+      <div class="card-title">🪙 حاسبة فارق نقاط الخبز (الشهر الحالي)</div>
+      <div class="grid-2">
+        <div class="stat-box">
+          <div class="stat-number" id="savedLoaves">0</div>
+          <div class="stat-label">رغيف موفّر</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="savedPointsValue">0.00 ج.م</div>
+          <div class="stat-label">رصيد نقاط التموين</div>
+        </div>
+      </div>
+      <div style="font-size: 0.76rem; color: var(--subtext); margin-top: 8px; text-align: center; line-height: 1.3;">
+        💡 كل رغيف موفر يمنحك 10 قروش تضاف لحسابك لشراء سلع تموينية مجانية الشهر التالي.
+      </div>
     </div>
 
     <!-- تسجيل يدوي -->
@@ -309,9 +328,9 @@
       </button>
     </div>
 
-    <!-- الإعدادات -->
+    <!-- الإعدادات والإشعارات -->
     <div class="card">
-      <div class="card-title">⚙️ إعدادات البطاقة والأفراد</div>
+      <div class="card-title">⚙️ الإعدادات والتنبيهات</div>
       
       <div class="input-group">
         <label for="userNameInput">اسم صاحب البطاقة (الذي يظهر على الكارت):</label>
@@ -320,12 +339,21 @@
 
       <div class="input-group">
         <label for="members">عدد الأفراد المسجلين:</label>
-        <input type="number" id="members" min="1" max="10" value="3" onchange="updateQuota(); saveSettings(); updatePreview();">
+        <input type="number" id="members" min="1" max="10" value="3" onchange="updateQuota(); saveSettings(); updatePreview(); calculateBreadPoints();">
+      </div>
+
+      <!-- إشعارات الهاتف النظامية (جديد) -->
+      <div class="input-group">
+        <label>🔔 إشعارات الشاشة والنظام:</label>
+        <button type="button" class="btn btn-notif" id="notifPermBtn" onclick="requestNotificationPermission()">
+          📲 تفعيل إشعارات الهاتف الحقيقية
+        </button>
+        <div id="notifStatusText" style="font-size: 0.75rem; color: var(--subtext); margin-top: 4px; text-align: center;"></div>
       </div>
 
       <!-- قسم اختيار النغمة والملفات الخارجية -->
       <div class="input-group">
-        <label for="alarmSoundSelect">🔔 اختر نغمة التنبيه والإشعارات:</label>
+        <label for="alarmSoundSelect">🎵 اختر نغمة التنبيه والإشعارات:</label>
         <div style="display: flex; gap: 8px;">
           <select id="alarmSoundSelect" onchange="handleSoundSelectChange(); saveSettings();">
             <option value="1">نغمة 1: جرس تنبيه عالي 🔔</option>
@@ -336,7 +364,6 @@
           <button type="button" onclick="playSelectedSound()" style="padding: 0 12px; background: var(--gold); border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: #000;">▶️ تجربة</button>
         </div>
 
-        <!-- حقل رفع ملف صوتي مخصص -->
         <div id="customSoundContainer" style="display: none; margin-top: 10px;">
           <label for="customAudioInput" style="font-size: 0.8rem; color: var(--primary); font-weight: bold;">اختر ملف صوتي (MP3/WAV) من هاتفك:</label>
           <input type="file" id="customAudioInput" accept="audio/*" onchange="handleCustomAudioUpload(event)">
@@ -395,21 +422,62 @@
     function updateUserName() {
       const inputVal = document.getElementById('userNameInput').value.trim();
       const displayElem = document.getElementById('cardHolderDisplay');
-      if (inputVal !== "") {
-        displayElem.innerText = inputVal;
+      displayElem.innerText = inputVal !== "" ? inputVal : "صاحب البطاقة";
+    }
+
+    /* --- إدارة الإشعارات الحقيقية (Web Notifications API) --- */
+    function checkNotificationStatus() {
+      const btn = document.getElementById('notifPermBtn');
+      const text = document.getElementById('notifStatusText');
+
+      if (!("Notification" in window)) {
+        text.innerText = "❌ هذا المتصفح لا يدعم إشعارات النظام.";
+        btn.style.display = 'none';
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        btn.innerText = "✅ الإشعارات مفعّلة بنجاح";
+        btn.style.background = "#2e7d32";
+        text.innerText = "سوف تصلك تنبيهات حقيقية على الهاتف فور استحقاق الصرف.";
+      } else if (Notification.permission === "denied") {
+        btn.innerText = "🚫 الإشعارات محظورة من المتصفح";
+        btn.style.background = "#c62828";
+        text.innerText = "يمكنك إلغاء الحظر من إعدادات الموقع بالمتصفح لتفعيل التنبيهات.";
       } else {
-        displayElem.innerText = "صاحب البطاقة";
+        btn.innerText = "📲 تفعيل إشعارات الهاتف الحقيقية";
+        btn.style.background = "#0288d1";
+        text.innerText = "اضغط للسماح بالتطبيقات بإرسال تنبيهات على الهاتف.";
       }
     }
 
+    function requestNotificationPermission() {
+      if (!("Notification" in window)) {
+        alert("متصفحك لا يدعم إشعارات النظام.");
+        return;
+      }
+      Notification.requestPermission().then(permission => {
+        checkNotificationStatus();
+        if (permission === "granted") {
+          sendSystemNotification("تم تفعيل التنبيهات! 🔔", "ستتلقى إشعاراً تلقائياً فور توفر حصتك للخبز.");
+        }
+      });
+    }
+
+    function sendSystemNotification(title, body) {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, {
+          body: body,
+          icon: './icon-192.png'
+        });
+      }
+    }
+
+    /* --- إدارة ملفات الصوت --- */
     function handleSoundSelectChange() {
       const soundType = document.getElementById('alarmSoundSelect').value;
       const container = document.getElementById('customSoundContainer');
-      if (soundType === 'custom') {
-        container.style.display = 'block';
-      } else {
-        container.style.display = 'none';
-      }
+      container.style.display = soundType === 'custom' ? 'block' : 'none';
     }
 
     function handleCustomAudioUpload(event) {
@@ -494,6 +562,38 @@
           osc.stop(audioCtx.currentTime + (index + 1) * 0.12);
         });
       }
+    }
+
+    /* --- حاسبة نقاط الخبز (Bread Points Calculator) --- */
+    function calculateBreadPoints() {
+      const members = parseInt(document.getElementById('members').value) || 1;
+      const today = new Date();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const dayOfMonth = today.getDate();
+
+      // الحصة المستحقة المكتسبة حتى يوم اليوم بالكامل
+      const expectedLoavesToDate = dayOfMonth * members * 5;
+
+      // حساب مجموع ما تم صرفه بالفعل خلال الشهر الحالي من السجل
+      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
+      let actualClaimedInMonth = 0;
+
+      history.forEach(item => {
+        if (item.timestamp) {
+          const recDate = new Date(item.timestamp);
+          if (recDate.getMonth() === currentMonth && recDate.getFullYear() === currentYear) {
+            actualClaimedInMonth += item.breadAmount;
+          }
+        }
+      });
+
+      // الرغيف الموفر = الحصة المتوقعة - المنصرف الفعلي
+      const savedLoavesCount = Math.max(0, expectedLoavesToDate - actualClaimedInMonth);
+      const pointsValueEGP = (savedLoavesCount * 0.10).toFixed(2); // 10 قروش لكل رغيف
+
+      document.getElementById('savedLoaves').innerText = savedLoavesCount;
+      document.getElementById('savedPointsValue').innerText = `${pointsValueEGP} ج.م`;
     }
 
     function getSelectedDate() {
@@ -586,6 +686,7 @@
       nextAllowed.setDate(dateObj.getDate() + days);
 
       const record = {
+        timestamp: dateObj.getTime(),
         collectedDate: dateObj.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }),
         nextDateISO: nextAllowed.toISOString(),
         nextDayName: daysArabic[nextAllowed.getDay()],
@@ -655,6 +756,7 @@
       updateQuota();
       updatePreview();
       updateGroceriesUI();
+      calculateBreadPoints();
 
       const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
       const statusCard = document.getElementById('statusCard');
@@ -675,6 +777,9 @@
           statusCard.className = "status-card";
           nextDisplay.innerText = "جاهز للصرف اليوم! 🟢";
           statusSubtext.innerText = `آخر مرة صرفت فيها كانت يوم ${lastRecord.collectedDate}`;
+          
+          // إرسال إشعار نظام حقيقي عند فتح التطبيق والموعد متاح
+          sendSystemNotification("موعد صرف الخبز جاهز! 🍞", "يمكنك الآن الذهاب للمخبز وصرف حصتك المستحقة.");
         } else {
           statusCard.className = "status-card waiting";
           nextDisplay.innerText = `يوم ${lastRecord.nextDayName} (${lastRecord.nextDateFormatted}) 🟠`;
@@ -723,15 +828,11 @@
       if (savedGroceriesDay) document.getElementById('groceriesDay').value = savedGroceriesDay;
 
       const savedUserName = localStorage.getItem('bread_user_name');
-      if (savedUserName) {
-        document.getElementById('userNameInput').value = savedUserName;
-      }
+      if (savedUserName) document.getElementById('userNameInput').value = savedUserName;
       updateUserName();
 
       const savedSound = localStorage.getItem('bread_alarm_sound');
-      if (savedSound) {
-        document.getElementById('alarmSoundSelect').value = savedSound;
-      }
+      if (savedSound) document.getElementById('alarmSoundSelect').value = savedSound;
       handleSoundSelectChange();
 
       const savedAudioName = localStorage.getItem('bread_custom_audio_name');
@@ -744,6 +845,7 @@
       loadTheme();
       initDatePicker();
       loadSettings();
+      checkNotificationStatus();
       updateUI();
     };
 
