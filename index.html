@@ -427,13 +427,25 @@
       console.log('Firebase messaging not supported');
     }
 
-    /* --- 1️⃣ تسجيل الـ Service Worker و PWA --- */
+    /* --- 1️⃣ تسجيل الـ Service Worker وإشعارات التحديث التلقائي --- */
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./firebase-messaging-sw.js')
           .then(reg => {
             swRegistration = reg;
             console.log('✅ Service Worker تعمل بنجاح:', reg.scope);
+
+            // فحص كشف وجود تحديث جديد للتطبيق تلقائياً
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  if (confirm('🎉 يوجد تحديث جديد للتطبيق! هل تريد التحديث الآن؟')) {
+                    window.location.reload();
+                  }
+                }
+              });
+            });
           })
           .catch(err => {
             navigator.serviceWorker.register('./sw.js').then(reg => {
