@@ -44,14 +44,14 @@ self.addEventListener('activate', (event) => {
 
 // 3️⃣ التعامل مع الطلبات (Fetch Event) باستراتيجية الاستجابة السريعة
 self.addEventListener('fetch', (event) => {
-  // تجنب كاش طلبات غير GET أو الطلبات الخاصة بإضافات المتصفح
+  // تجنب كاش طلبات غير GET أو الطلبات الخاصة بإضافات المتصفح أو شبكات Firebase
   if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      // محاولة الجلب من الشبكة أولاً مع تحديث الكاش تلقائياً (Stale-While-Revalidate)
+      // محاولة الجلب من الشبكة مع تحديث الكاش تلقائياً (Stale-While-Revalidate)
       const fetchPromise = fetch(event.request).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const responseToCache = networkResponse.clone();
@@ -60,13 +60,13 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {
-        // في حال انقطاع الإنترنت، يتم الاعتماد على الكاش
-        console.log('[SW] تعذر الاتصال بالشبكة، يتم التحميل من الكاش المحفوظ أوفلاين.');
       });
 
-      // إرجاع النسخة المخزنة فوراً إن وجدت، أو الانتظار للجلب من الشبكة
-      return cachedResponse || fetchPromise;
+      // إرجاع النسخة المخزنة فوراً إن وجدت، أو الانتظار للجلب من الشبكة، وإذا فشلا يُرجع index.html
+      return cachedResponse || fetchPromise.catch(() => {
+        console.log('[SW] تعذر الاتصال بالشبكة، يتم التحميل من الكاش المحفوظ أوفلاين.');
+        return caches.match('./index.html');
+      });
     })
   );
 });
