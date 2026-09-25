@@ -627,7 +627,7 @@
       }
     }
 
-    /* --- 4️⃣ التنبيه التلقائي الدوري --- */
+    /* --- 4️⃣ التنبيه التلقائي الدوري (كل 13 دقيقة) --- */
     function startRecurringReminder() {
       const MINUTES = 13;
       const INTERVAL_MS = MINUTES * 60 * 1000;
@@ -636,6 +636,7 @@
         const now = new Date();
         const currentHour = now.getHours();
 
+        // التنبيه يعمل في الفترة الممتدة صباحاً بين الساعة 6 صباحاً و12 ظهراً
         if (currentHour >= 6 && currentHour < 12) {
           const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
           
@@ -677,7 +678,7 @@
         if (item.timestamp) {
           const recDate = new Date(item.timestamp);
           if (recDate.getMonth() === currentMonth && recDate.getFullYear() === currentYear) {
-            actualClaimedInMonth += item.breadAmount;
+            actualClaimedInMonth += item.breadAmount || 0;
           }
         }
       });
@@ -778,218 +779,169 @@
       const nextAllowed = new Date(selectedDate);
       nextAllowed.setDate(selectedDate.getDate() + days);
 
-      const record = {
-        collectionDateISO: selectedDate.toISOString(),
-        nextDateISO: nextAllowed.toISOString(),
+      const recordData = {
+        dateISO: selectedDate.toISOString(),
         days: days,
         breadAmount: breadAmount,
-        timestamp: new Date().toISOString()
+        nextDateISO: nextAllowed.toISOString(),
+        timestamp: selectedDate.getTime()
       };
 
-      localStorage.setItem('last_bread_record', JSON.stringify(record));
-
-      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
-      history.unshift({
-        dateFormatted: selectedDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'numeric', year: 'numeric' }),
-        dayName: daysArabic[selectedDate.getDay()],
-        days: days,
-        breadAmount: breadAmount,
-        timestamp: record.timestamp
-      });
-      localStorage.setItem('bread_history', JSON.stringify(history));
+      localStorage.setItem('last_bread_record', JSON.stringify(recordData));
+      
+      const selDayName = daysArabic[selectedDate.getDay()];
+      const selDateFormatted = selectedDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long' });
+      addHistory(`صرف ${breadAmount} رغيف (${days} أيام) - ${selDayName} ${selDateFormatted}`, breadAmount);
 
       updateStatusUI();
       calculateBreadPoints();
-      renderHistory();
 
-      const nextDayName = daysArabic[nextAllowed.getDay()];
-      const nextDateFormatted = nextAllowed.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long' });
-      
-      alert(`✅ تم تسجيل صرف ${breadAmount} رغيف (${days} أيام) بنجاح!\n🎯 موعد الصرف القادم: ${nextDayName} ${nextDateFormatted}`);
+      sendSystemNotification('✅ تم تسجيل الصرف بنجاح', `تم تسجيل صرف ${breadAmount} رغيف. الموعد القادم: ${daysArabic[nextAllowed.getDay()]} ${nextAllowed.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long' })}`);
+      alert(`✅ تم التسجيل بنجاح!\nعدد الأرغفة: ${breadAmount}\nالموعد القادم للصرف: ${daysArabic[nextAllowed.getDay()]} ${nextAllowed.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })}`);
     }
 
     function updateStatusUI() {
-      const statusCard = document.getElementById('statusCard');
-      const nextAllowedDisplay = document.getElementById('nextAllowedDisplay');
-      const statusSubtext = document.getElementById('statusSubtext');
       const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
+      const statusCard = document.getElementById('statusCard');
+      const nextDisplay = document.getElementById('nextAllowedDisplay');
+      const subtext = document.getElementById('statusSubtext');
+
+      if (!lastRecord) {
+        statusCard.className = 'status-card';
+        nextDisplay.innerText = 'جاهز للصرف اليوم! 🍞';
+        subtext.innerText = 'لم يتم تسجيل عمليات صرف سابقة.';
+        return;
+      }
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      if (!lastRecord) {
-        statusCard.classList.remove('waiting');
-        nextAllowedDisplay.innerText = "جاهز للصرف اليوم! 🥖";
-        statusSubtext.innerText = "لم تقم بتسجيل أي عملية صرف من قبل.";
-        return;
-      }
+      const nextAllowed = new Date(lastRecord.nextDateISO);
+      nextAllowed.setHours(0, 0, 0, 0);
 
-      const nextDate = new Date(lastRecord.nextDateISO);
-      const nextDateZero = new Date(nextDate);
-      nextDateZero.setHours(0, 0, 0, 0);
-
-      const diffTime = nextDateZero - today;
+      const diffTime = nextAllowed - today;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      if (diffDays <= 0) {
-        statusCard.classList.remove('waiting');
-        nextAllowedDisplay.innerText = "جاهز للصرف اليوم! 🥖";
-        const lastColDate = new Date(lastRecord.collectionDateISO);
-        statusSubtext.innerText = `آخر صرف كان يوم ${daysArabic[lastColDate.getDay()]} (${lastColDate.toLocaleDateString('ar-EG')}) لمدة ${lastRecord.days} أيام.`;
+      const nextDayName = daysArabic[nextAllowed.getDay()];
+      const nextDateFormatted = nextAllowed.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      if (today >= nextAllowed) {
+        statusCard.className = 'status-card';
+        nextDisplay.innerText = 'جاهز للصرف اليوم! 🍞';
+        subtext.innerText = `آخر صرف كان بتاريخ: ${new Date(lastRecord.dateISO).toLocaleDateString('ar-EG')}`;
       } else {
-        statusCard.classList.add('waiting');
-        const dayName = daysArabic[nextDate.getDay()];
-        const dateFormatted = nextDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' });
-        nextAllowedDisplay.innerText = `متبقي ${diffDays} يوم - الصرف يوم ${dayName}`;
-        statusSubtext.innerText = `الموعد القادم المسموح به: ${dayName} الموافق ${dateFormatted}`;
+        statusCard.className = 'status-card waiting';
+        nextDisplay.innerText = `متبقي ${diffDays} يوم (${nextDayName} ${nextDateFormatted})`;
+        subtext.innerText = `حصة 3 أيام تصرف مرّة واحدة. يمكنك الصرف بدءاً من يوم ${nextDayName}.`;
       }
     }
 
-    function renderHistory() {
-      const historyList = document.getElementById('historyList');
-      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
-
-      if (history.length === 0) {
-        historyList.innerHTML = `<li style="text-align: center; color: var(--subtext);">لا توجد عمليات مسجلة.</li>`;
-        return;
-      }
-
-      historyList.innerHTML = history.slice(0, 15).map(item => `
-        <li>
-          <div>
-            <strong>${item.dayName} (${item.dateFormatted})</strong>
-            <div style="font-size:0.75rem; color:var(--subtext);">${item.days} أيام - ${item.breadAmount} رغيف</div>
-          </div>
-          <span class="badge">تم الصرف</span>
-        </li>
-      `).join('');
-    }
-
-    function clearHistory() {
-      if (confirm("هل أنت تأكد من مسح كافة سجل عمليات الصرف؟")) {
-        localStorage.removeItem('bread_history');
-        localStorage.removeItem('last_bread_record');
-        renderHistory();
-        updateStatusUI();
-        calculateBreadPoints();
-      }
-    }
-
-    /* --- التموين الشهري --- */
-    function getGroceriesKey() {
-      const today = new Date();
-      return `groceries_claimed_${today.getFullYear()}_${today.getMonth() + 1}`;
-    }
-
+    /* --- إدارة التموين الشهري --- */
     function updateGroceriesUI() {
-      const isClaimed = localStorage.getItem(getGroceriesKey()) === 'true';
-      const statusBox = document.getElementById('groceriesStatusBox');
-      const btn = document.getElementById('groceriesBtn');
-      const prefDay = parseInt(document.getElementById('groceriesDay').value) || 1;
+      const targetDay = parseInt(document.getElementById('groceriesDay').value) || 1;
       const today = new Date();
+      const currentMonthKey = `groceries_${today.getFullYear()}_${today.getMonth()}`;
+      const isClaimed = localStorage.getItem(currentMonthKey) === 'true';
+
+      const box = document.getElementById('groceriesStatusBox');
+      const btn = document.getElementById('groceriesBtn');
 
       if (isClaimed) {
-        statusBox.innerText = "✅ تم صرف التموين الشهري لهذا الشهر بنجاح.";
-        statusBox.style.borderColor = "var(--primary)";
-        btn.innerText = "تحديد كـ (لم يتم الصرف بعد) 🔄";
-        btn.className = "btn btn-claimed";
+        box.innerText = '✅ تم تموين سلع الشهر الحالي بنجاح.';
+        box.style.borderColor = 'var(--status-ready-border)';
+        btn.innerText = 'إلغاء تحديد التموين 🔄';
+        btn.className = 'btn btn-claimed';
       } else {
-        if (today.getDate() >= prefDay) {
-          statusBox.innerText = `🛒 التموين الشهري مستحق الصرف الآن! (الموعد المحدد: يوم ${prefDay} في الشهر)`;
-          statusBox.style.borderColor = "#ef6c00";
-        } else {
-          statusBox.innerText = `⏳ التموين غير مستحق بعد. موعد التذكير المحدد: يوم ${prefDay} من هذا الشهر.`;
-          statusBox.style.borderColor = "var(--border)";
-        }
-        btn.innerText = "تم صرف تموين الشهر الحالي ✅";
-        btn.className = "btn btn-success";
+        box.innerText = `🛒 موعد التموين المفضل: يوم ${targetDay} في الشهر.`;
+        box.style.borderColor = 'var(--status-waiting-border)';
+        btn.innerText = 'تم صرف تموين الشهر الحالي ✅';
+        btn.className = 'btn btn-success';
       }
     }
 
     function toggleGroceriesClaim() {
-      const key = getGroceriesKey();
-      const current = localStorage.getItem(key) === 'true';
-      localStorage.setItem(key, (!current).toString());
+      const today = new Date();
+      const currentMonthKey = `groceries_${today.getFullYear()}_${today.getMonth()}`;
+      const isClaimed = localStorage.getItem(currentMonthKey) === 'true';
+
+      if (isClaimed) {
+        localStorage.removeItem(currentMonthKey);
+      } else {
+        localStorage.setItem(currentMonthKey, 'true');
+        sendSystemNotification('🛍️ تموين السلع', 'تم تسجيل صرف سلع التموين الشهرية بنجاح!');
+      }
       updateGroceriesUI();
     }
 
-    /* --- الإعدادات وحفظ البيانات --- */
-    function saveSettings() {
-      const userName = document.getElementById('userNameInput').value;
-      const members = document.getElementById('members').value;
-      const sound = document.getElementById('alarmSoundSelect').value;
-      const groceriesDay = document.getElementById('groceriesDay').value;
+    /* --- إدارة السجل --- */
+    function addHistory(text, breadAmount) {
+      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
+      history.unshift({ text: text, breadAmount: breadAmount, timestamp: new Date().getTime() });
+      if (history.length > 20) history.pop();
+      localStorage.setItem('bread_history', JSON.stringify(history));
+      loadHistory();
+    }
 
-      localStorage.setItem('bread_user_name', userName);
-      localStorage.setItem('bread_members', members);
-      localStorage.setItem('bread_sound', sound);
-      localStorage.setItem('bread_groceries_day', groceriesDay);
+    function loadHistory() {
+      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
+      const list = document.getElementById('historyList');
+      if (history.length === 0) {
+        list.innerHTML = '<li style="text-align: center; color: var(--subtext);">لا توجد عمليات مسجلة.</li>';
+        return;
+      }
+      list.innerHTML = history.map(item => `<li><span>${item.text}</span> <span class="badge">${new Date(item.timestamp).toLocaleDateString('ar-EG')}</span></li>`).join('');
+    }
+
+    function clearHistory() {
+      if (confirm('هل أنت تأكد من مسح جميع سجلات الصرف؟')) {
+        localStorage.removeItem('bread_history');
+        localStorage.removeItem('last_bread_record');
+        loadHistory();
+        updateStatusUI();
+        calculateBreadPoints();
+      }
+    }
+
+    /* --- حفظ واسترجاع الإعدادات --- */
+    function saveSettings() {
+      const settings = {
+        userName: document.getElementById('userNameInput').value,
+        members: document.getElementById('members').value,
+        alarmSound: document.getElementById('alarmSoundSelect').value,
+        groceriesDay: document.getElementById('groceriesDay').value
+      };
+      localStorage.setItem('bread_settings', JSON.stringify(settings));
     }
 
     function loadSettings() {
-      loadTheme();
+      const saved = JSON.parse(localStorage.getItem('bread_settings') || '{}');
+      if (saved.userName !== undefined) document.getElementById('userNameInput').value = saved.userName;
+      if (saved.members !== undefined) document.getElementById('members').value = saved.members;
+      if (saved.alarmSound !== undefined) document.getElementById('alarmSoundSelect').value = saved.alarmSound;
+      if (saved.groceriesDay !== undefined) document.getElementById('groceriesDay').value = saved.groceriesDay;
 
-      const userName = localStorage.getItem('bread_user_name') || '';
-      document.getElementById('userNameInput').value = userName;
-      updateUserName();
-
-      const members = localStorage.getItem('bread_members') || '3';
-      document.getElementById('members').value = members;
-
-      const sound = localStorage.getItem('bread_sound') || '1';
-      document.getElementById('alarmSoundSelect').value = sound;
-      handleSoundSelectChange();
-
-      const customName = localStorage.getItem('bread_custom_audio_name');
-      if (customName) {
-        document.getElementById('customAudioName').innerText = '🎵 الملف المعتمد: ' + customName;
+      const savedAudioName = localStorage.getItem('bread_custom_audio_name');
+      if (savedAudioName) {
+        document.getElementById('customAudioName').innerText = '🎵 الملف المعتمد: ' + savedAudioName;
       }
 
-      const groceriesDay = localStorage.getItem('bread_groceries_day') || '1';
-      document.getElementById('groceriesDay').value = groceriesDay;
-
+      updateUserName();
       updateQuota();
-      initDatePicker();
-      updateStatusUI();
-      renderHistory();
-      calculateBreadPoints();
-      updateGroceriesUI();
-      checkNotificationStatus();
+      handleSoundSelectChange();
     }
 
-    /* --- تفاعل ذكي عند العودة للصفحة/فتح الصفحة --- */
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        updateStatusUI();
-        calculateBreadPoints();
-        updateGroceriesUI();
-        
-        const lastAlertTime = parseInt(localStorage.getItem('last_active_alert_time') || '0');
-        const nowMs = Date.now();
-        if (nowMs - lastAlertTime > 2 * 60 * 60 * 1000) {
-          const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
-          const today = new Date();
-          today.setHours(0,0,0,0);
-          
-          let isReady = !lastRecord;
-          if (lastRecord) {
-            const nextDate = new Date(lastRecord.nextDateISO);
-            nextDate.setHours(0,0,0,0);
-            if (today >= nextDate) isReady = true;
-          }
-
-          if (isReady && today.getHours() >= 6 && today.getHours() < 12) {
-            playSelectedSound();
-            localStorage.setItem('last_active_alert_time', nowMs.toString());
-          }
-        }
-      }
-    });
-
-    window.onload = function() {
+    /* --- التهيئة المباشرة عند فتح الصفحة --- */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadTheme();
       loadSettings();
+      initDatePicker();
+      updateStatusUI();
+      updateGroceriesUI();
+      calculateBreadPoints();
+      loadHistory();
+      checkNotificationStatus();
       startRecurringReminder();
-    };
+    });
   </script>
 </body>
 </html>
