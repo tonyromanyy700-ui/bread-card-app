@@ -2,21 +2,27 @@
   "name": "بطاقة التموين والأسرة Smart Card",
   "short_name": "بطاقة التموين",
   "description": "تطبيق تتبع حصص الخبز والتموين الذكي",
+  "lang": "ar",
+  "dir": "rtl",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#1e5e2e",
   "theme_color": "#1e5e2e",
   "orientation": "portrait",
+  "gcm_sender_id": "103953800507",
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
