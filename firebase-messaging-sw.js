@@ -76,22 +76,23 @@ self.addEventListener('fetch', (event) => {
 messaging.onBackgroundMessage(function(payload) {
   console.log('[firebase-messaging-sw.js] تم استقبال إشعار في الخلفية:', payload);
 
-  const title = payload.notification?.title || "تطبيق الخبز والتموين 🍞";
-  const options = {
-    body: payload.notification?.body || "تذكير بموعد صرف حصتك اليومية.",
-    icon: './icon-192.png',
-    badge: './icon-192.png',
-    vibrate: [200, 100, 200],
-    tag: 'bread-reminder-notification',
-    renotify: true,
-    data: {
-      url: payload.data?.url || './index.html'
-    }
-  };
-
-  self.registration.showNotification(title, options);
+  // إذا كان الإشعار قادماً بدون كائن notification تلقائي (Data-only payload)
+  if (!payload.notification) {
+    const title = payload.data?.title || "تطبيق الخبز والتموين 🍞";
+    const options = {
+      body: payload.data?.body || "تذكير بموعد صرف حصتك اليومية.",
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      vibrate: [200, 100, 200],
+      tag: 'bread-reminder-notification',
+      renotify: true,
+      data: {
+        url: payload.data?.url || './index.html'
+      }
+    };
+    return self.registration.showNotification(title, options);
+  }
 });
-
 // 5. الاستجابة عند ضغط المستخدم على الإشعار لفتح التطبيق
 self.addEventListener('notificationclick', (event) => {
   console.log('[Service Worker] تم الضغط على الإشعار.');
@@ -112,7 +113,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-
-
-
-
