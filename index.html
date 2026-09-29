@@ -1,29 +1,43 @@
+<!-- ضع div واحد فقط بالـ id الصحيح -->
 <div style="margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.05); border-radius: 8px; text-align: center;">
-  <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">🔑 رمز التنبيهات (FCM Token):</label>
-  <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="جاري جلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px; direction: ltr; text-align: left; border: 1px solid #ccc; border-radius: 6px; resize: none;"></textarea>
+  <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">🔑 رمز التنبيهات (FCM Token)</label>
+  <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="جاري جلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px;"></textarea>
 </div>
-<div style="margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.05); border-radius: 8px; text-align: center;">
-  <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">🔑 رمز التنبيهات (FCM Token):</label>
-  <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="جاري جلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px; direction: ltr; text-align: left; border: 1px solid #ccc; border-radius: 6px; resize: none;"></textarea>
-</div>
+
+<!-- تحميل مكتبات فايربيس -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js"></script>
+
 <script>
+  // تهيئة إعدادات فايربيس وتعريف messaging
+  const firebaseConfig = {
+    apiKey: "AIzaSyBzCbEv09jVBLyKs2W5PSUHJZ9b5f5wox0",
+    authDomain: "bread-app-fa911.firebaseapp.com",
+    projectId: "bread-app-fa911",
+    storageBucket: "bread-app-fa911.firebasestorage.app",
+    messagingSenderId: "881646311297",
+    appId: "1:881646311297:web:8de38d7dd1d2533a23fa80",
+    measurementId: "G-D3WF378JCB"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
+
+  // دالة طلب الإذن وجلب التوكن
   function requestAndShowFcmToken() {
     const tokenInput = document.getElementById('fcmTokenDisplay');
     if (tokenInput) {
       tokenInput.value = "جاري طلب إذن الإشعارات وجلب التوكن...";
     }
 
-    // 1. طلب إذن الإشعارات من المتصفح أولاً
     Notification.requestPermission().then((permission) => {
       if (permission === 'granted') {
         console.log('تم قبول إذن الإشعارات.');
 
-        // 2. تسجيل Service Worker يدوياً ليتوافق مع GitHub Pages
         navigator.serviceWorker.register('./firebase-messaging-sw.js')
           .then((registration) => {
             console.log('تم العثور على Service Worker بنجاح.');
             
-            // 3. تمرير التسجيل والمفتاح إلى فايربيس
             return messaging.getToken({ 
               vapidKey: 'BPQCg0zIJqQNCUioc6DGtbxMPfdAEywMfYVNVRvo6qliz2ErQFCLvMSNsROKkqlTaR0EfHQKw3sXOaEKF-vqjZo',
               serviceWorkerRegistration: registration 
@@ -32,7 +46,7 @@
           .then((currentToken) => {
             if (currentToken) {
               console.log('FCM Token:', currentToken);
-              if (tokenInput) tokenInput.value = currentToken; // عرض التوكن في المربع
+              if (tokenInput) tokenInput.value = currentToken; // سيظهر التوكن هنا فوراً
             } else {
               if (tokenInput) tokenInput.value = "لم يتم توليد توكن.";
             }
@@ -51,6 +65,6 @@
     });
   }
 
-  // تشغيل الدالة تلقائياً عند فتح الصفحة
+  // تشغيل الدالة فور تحميل الصفحة
   requestAndShowFcmToken();
 </script>
