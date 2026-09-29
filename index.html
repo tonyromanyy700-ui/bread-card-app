@@ -1,65 +1,1005 @@
-<div style="margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.05); border-radius: 8px; text-align: center;">
-  <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">🔑 رمز التنبيهات (FCM Token)</label>
-  <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="اضغط على الزر أدناه لجلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px;"></textarea>
-  <button onclick="requestAndShowFcmToken()" style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px;">اضغط هنا لجلب التوكن 🔔</button>
-</div>
-
-<!-- تحميل مكتبات فايربيس -->
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js"></script>
-
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBzCbEv09jVBLyKs2W5PSUHJZ9b5f5wox0",
-    authDomain: "bread-app-fa911.firebaseapp.com",
-    projectId: "bread-app-fa911",
-    storageBucket: "bread-app-fa911.firebasestorage.app",
-    messagingSenderId: "881646311297",
-    appId: "1:881646311297:web:8de38d7dd1d2533a23fa80",
-    measurementId: "G-D3WF378JCB"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const messaging = firebase.messaging();
-
-  function requestAndShowFcmToken() {
-    const tokenInput = document.getElementById('fcmTokenDisplay');
-    if (tokenInput) {
-      tokenInput.value = "جاري طلب إذن الإشعارات وجلب التوكن...";
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بطاقة الأسرة والتموين | Eng. Tony</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e5e2e">
+  <style>
+    :root {
+      --bg: #f2f5f3;
+      --card-bg: #ffffff;
+      --text: #1b2e1e;
+      --subtext: #596b5c;
+      --border: #d2ded4;
+      --primary: #1e5e2e;
+      --primary-dark: #123d1d;
+      --gold: #d4af37;
+      --gold-light: #fbe8a6;
+      --status-ready-bg: #e8f5e9;
+      --status-ready-border: #2e7d32;
+      --status-waiting-bg: #fff3e0;
+      --status-waiting-border: #ef6c00;
+      --input-bg: #ffffff;
+      --preview-bg: #f0f7f1;
+      --preview-border: #1e5e2e;
+      --note-bg: #fff8e1;
+      --note-border: #ffe082;
     }
 
-    Notification.requestPermission().then((permission) => {
-      if (permission === 'granted') {
-        console.log('تم قبول إذن الإشعارات.');
+    [data-theme="dark"] {
+      --bg: #101812;
+      --card-bg: #1a261c;
+      --text: #e8f0ea;
+      --subtext: #9eb0a1;
+      --border: #2a3d2c;
+      --primary: #2e7d32;
+      --primary-dark: #1b5e20;
+      --gold: #c5a028;
+      --gold-light: #3d3415;
+      --status-ready-bg: #132b17;
+      --status-ready-border: #2e7d32;
+      --status-waiting-bg: #331d0d;
+      --status-waiting-border: #ff9800;
+      --input-bg: #223325;
+      --preview-bg: #152918;
+      --preview-border: #2e7d32;
+      --note-bg: #282415;
+      --note-border: #5e5019;
+    }
 
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; transition: background-color 0.3s, color 0.3s; }
+    body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px; }
+    .container { width: 100%; max-width: 480px; }
+
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      padding: 18px;
+      border-radius: 16px;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+      position: relative;
+    }
+    header h1 { font-size: 1.3rem; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    header p { font-size: 0.82rem; opacity: 0.9; }
+
+    .developer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(212, 175, 55, 0.25);
+      border: 1px solid var(--gold);
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-top: 8px;
+      backdrop-filter: blur(4px);
+    }
+
+    .theme-toggle-btn {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+
+    .smart-card-container { perspective: 1000px; margin-bottom: 15px; }
+    .smart-card-inner {
+      width: 100%;
+      height: 210px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border-radius: 16px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    }
+    .smart-card-inner.flipped { transform: rotateY(180deg); }
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 16px;
+    }
+    .card-front {
+      background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 45%, #e6ce6a 45%, #f9f3b7 100%);
+      color: #1a2e1d;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card-header-row { display: flex; justify-content: space-between; align-items: center; }
+    .eagle-logo { font-weight: bold; font-size: 0.9rem; color: #0d3811; display: flex; align-items: center; gap: 5px; }
+    .chip-section { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .sim-chip {
+      width: 45px;
+      height: 35px;
+      background: linear-gradient(135deg, #e6c662, #bd9122);
+      border-radius: 6px;
+      border: 1px solid #997413;
+      position: relative;
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.3);
+    }
+    .sim-chip::after {
+      content: '';
+      position: absolute;
+      top: 30%;
+      left: 0;
+      width: 100%;
+      height: 40%;
+      border-top: 1px solid #82600b;
+      border-bottom: 1px solid #82600b;
+    }
+    .card-title-text { font-size: 1.1rem; font-weight: bold; color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+    .card-data-fields { text-align: right; background: rgba(255, 255, 255, 0.45); padding: 8px 12px; border-radius: 8px; backdrop-filter: blur(4px); }
+    .card-holder-name { font-size: 1.05rem; font-weight: bold; color: #0f2b11; }
+    .card-number-display { font-family: 'Courier New', Courier, monospace; font-size: 0.95rem; font-weight: bold; letter-spacing: 2px; color: #1b3d1f; }
+    .card-back { background: linear-gradient(135deg, #18331a, #284c2b); color: white; transform: rotateY(180deg); display: flex; flex-direction: column; justify-content: space-between; }
+    .magnetic-stripe { background: #111; height: 40px; width: calc(100% + 32px); margin: -16px -16px 10px -16px; }
+    .card-actions-bar { display: flex; justify-content: center; margin-bottom: 15px; }
+    .flip-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 6px 16px; border-radius: 20px; font-size: 0.82rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+
+    .today-banner { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 15px; text-align: center; font-size: 0.88rem; font-weight: 600; margin-bottom: 12px; color: var(--primary); }
+    
+    .status-card { background: var(--status-ready-bg); border: 2px solid var(--status-ready-border); border-radius: 14px; padding: 15px; text-align: center; margin-bottom: 15px; }
+    .status-card.waiting { background: var(--status-waiting-bg); border-color: var(--status-waiting-border); }
+    .status-title { font-size: 0.85rem; color: var(--subtext); margin-bottom: 4px; }
+    .status-day { font-size: 1.35rem; font-weight: bold; color: var(--primary); }
+    .status-card.waiting .status-day { color: #ef6c00; }
+
+    .card { background: var(--card-bg); border-radius: 14px; padding: 16px; margin-bottom: 15px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .card-title { font-size: 1rem; font-weight: bold; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+
+    .input-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: var(--subtext); font-weight: 600; }
+    select, input[type="number"], input[type="text"], input[type="date"], input[type="file"], input[type="time"] {
+      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; background: var(--input-bg); color: var(--text);
+    }
+
+    .preview-box { background: var(--preview-bg); border: 1px dashed var(--preview-border); padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.82rem; line-height: 1.4; }
+    .rule-note { background: var(--note-bg); border: 1px solid var(--note-border); padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; margin-bottom: 12px; color: var(--text); }
+
+    .btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn:hover { opacity: 0.9; }
+    .btn-quick { background: #2e7d32; font-size: 1.02rem; padding: 14px; border-radius: 12px; box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3); }
+    .btn-secondary { background: #6c757d; margin-top: 10px; font-size: 0.82rem; padding: 8px; }
+    .btn-success { background: #1b5e20; }
+    .btn-claimed { background: #455a64; color: #fff; }
+    .btn-notif { background: #0288d1; margin-top: 5px; font-size: 0.85rem; padding: 10px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-box { background: var(--bg); padding: 10px; border-radius: 10px; text-align: center; border: 1px solid var(--border); }
+    .stat-number { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
+    .stat-label { font-size: 0.75rem; color: var(--subtext); }
+
+    ul.history-list { list-style: none; margin-top: 10px; max-height: 160px; overflow-y: auto; }
+    ul.history-list li { padding: 9px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; }
+    .badge { background: var(--border); color: var(--text); padding: 3px 7px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; }
+
+    footer {
+      text-align: center;
+      padding: 15px 0;
+      font-size: 0.8rem;
+      color: var(--subtext);
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <button class="theme-toggle-btn" id="themeBtn" onclick="toggleTheme()" title="تغيير المظهر">🌙</button>
+      <h1>💳 بطاقة الأسرة والتموين</h1>
+      <p>تذكير وتتبع حصص الخبز والسلع التموينية</p>
+      <div class="developer-badge">👨‍💻 تطوير: Eng. Tony</div>
+    </header>
+
+    <!-- البطاقة الذكية -->
+    <div class="smart-card-container">
+      <div class="smart-card-inner" id="smartCard">
+        <div class="card-front">
+          <div class="card-header-row">
+            <div class="eagle-logo">🦅 جمهورية مصر العربية</div>
+            <div class="card-title-text">بطاقة الأسرة</div>
+          </div>
+          <div class="chip-section">
+            <div class="sim-chip"></div>
+            <div style="font-size: 0.75rem; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">بطاقة ذكية نموذجية</div>
+          </div>
+          <div class="card-data-fields">
+            <div class="card-holder-name" id="cardHolderDisplay">صاحب البطاقة</div>
+            <div class="card-number-display">•••• •••• ••••</div>
+          </div>
+        </div>
+        <div class="card-back">
+          <div class="magnetic-stripe"></div>
+          <div style="font-size: 0.8rem; text-align: center; opacity: 0.8;">
+            تستخدم هذه البطاقة لصرف السلع التموينية والخبز المدعم طبقا للنظام الذكي.
+          </div>
+          <div style="text-align: left; font-size: 0.75rem; opacity: 0.8; font-weight: bold; color: var(--gold-light);">
+            Developed by: Eng. Tony © 2026
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-actions-bar">
+      <button class="flip-btn" onclick="flipCard()">🔄 قلب البطاقة للتفاعل</button>
+    </div>
+
+    <div class="today-banner" id="todayDateDisplay">📆 تاريخ اليوم: جاري التحميل...</div>
+
+    <!-- شريط حالة الخبز -->
+    <div class="status-card" id="statusCard">
+      <div class="status-title">📅 موعد صرف العيش القادم المسموح به:</div>
+      <div class="status-day" id="nextAllowedDisplay">جاهز للصرف اليوم!</div>
+      <div id="statusSubtext" style="font-size: 0.78rem; margin-top: 4px; color: var(--subtext);"></div>
+    </div>
+
+    <!-- زر الصرف السريع -->
+    <button class="btn btn-quick" id="quickBtn" onclick="quickRecordToday()">
+      ✅ تم صرف عيش اليوم ⚡
+    </button>
+    <div style="font-size: 0.75rem; text-align: center; color: var(--subtext); margin: 6px 0 15px 0;">
+      اضغط فور الصرف ليتم التسجيل والحساب التلقائي فوراً.
+    </div>
+
+    <!-- حاسبة نقاط الخبز -->
+    <div class="card">
+      <div class="card-title">🪙 حاسبة فارق نقاط الخبز (الشهر الحالي)</div>
+      <div class="grid-2">
+        <div class="stat-box">
+          <div class="stat-number" id="savedLoaves">0</div>
+          <div class="stat-label">رغيف موفّر</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="savedPointsValue">0.00 ج.م</div>
+          <div class="stat-label">رصيد نقاط التموين</div>
+        </div>
+      </div>
+      <div style="font-size: 0.76rem; color: var(--subtext); margin-top: 8px; text-align: center; line-height: 1.3;">
+        💡 كل رغيف موفر يمنحك 10 قروش تضاف لحسابك لشراء سلع تموينية مجانية الشهر التالي.
+      </div>
+    </div>
+
+    <!-- تسجيل يدوي -->
+    <div class="card">
+      <div class="card-title">✍️ تسجيل يدوي / اختيار تاريخ</div>
+      
+      <div class="input-group">
+        <label for="collectionDate">تاريخ الصرف:</label>
+        <input type="date" id="collectionDate" onchange="onDateChange()">
+      </div>
+
+      <div class="rule-note" id="ruleNote" style="display: none;">
+        📌 <strong>ملاحظة نظام أول الشهر:</strong> يوم 1 في الشهر يُسمح فيه بصرف حصة يوم واحد فقط (15 رغيف).
+      </div>
+
+      <div class="input-group">
+        <label for="daysCollected">مدة الصرف:</label>
+        <select id="daysCollected" onchange="updatePreview()">
+          <option value="1">حصة يوم واحد (15 رغيف)</option>
+          <option value="2">حصة يومين متتقدمين (30 رغيف)</option>
+          <option value="3" selected>حصة 3 أيام متتقدمة (45 رغيف)</option>
+        </select>
+      </div>
+
+      <div class="preview-box" id="previewBox">🔄 جاري حساب الموعد...</div>
+
+      <button class="btn" onclick="recordCollection()">تسجيل الصرف وتحديث الموعد 🔔</button>
+    </div>
+
+    <!-- التموين الشهري -->
+    <div class="card">
+      <div class="card-title">🛍️ تذكير السلع التموينية</div>
+      
+      <div class="input-group">
+        <label for="groceriesDay">تاريخ التذكير المفضل شهرياً:</label>
+        <select id="groceriesDay" onchange="saveSettings(); updateGroceriesUI();">
+          <option value="1" selected>يوم 1 في الشهر</option>
+          <option value="5">يوم 5 في الشهر</option>
+          <option value="10">يوم 10 في الشهر</option>
+          <option value="15">يوم 15 في الشهر</option>
+        </select>
+      </div>
+
+      <div id="groceriesStatusBox" class="preview-box" style="text-align: center; font-weight: 600;">جاري الفحص...</div>
+
+      <button id="groceriesBtn" class="btn btn-success" onclick="toggleGroceriesClaim()">
+        تم صرف تموين الشهر الحالي ✅
+      </button>
+    </div>
+
+    <!-- الإعدادات والإشعارات -->
+    <div class="card">
+      <div class="card-title">⚙️ الإعدادات والتنبيهات</div>
+      
+      <div class="input-group">
+        <label for="userNameInput">اسم صاحب البطاقة (الذي يظهر على الكارت):</label>
+        <input type="text" id="userNameInput" placeholder="أدخل اسمك هنا" oninput="updateUserName(); saveSettings();">
+      </div>
+
+      <!-- عدد الأفراد المسجلين -->
+      <div class="input-group">
+        <label for="members">عدد الأفراد المسجلين:</label>
+        <input type="number" id="members" min="1" max="10" value="3" onchange="updateQuota(); saveSettings(); updatePreview(); calculateBreadPoints();">
+      </div>
+
+      <!-- ⏰ اختيار فترة التنبيه اليومي -->
+      <div class="input-group" style="margin-top: 15px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 8px;">⏰ فترة تفعيل التنبيه اليومي:</label>
+        
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between;">
+          <div style="flex: 1;">
+            <label for="reminderStartTime" style="font-size: 0.85em; display: block; margin-bottom: 4px;">من الساعة:</label>
+            <input type="time" id="reminderStartTime" value="08:00">
+          </div>
+          
+          <div style="flex: 1;">
+            <label for="reminderEndTime" style="font-size: 0.85em; display: block; margin-bottom: 4px;">إلى الساعة:</label>
+            <input type="time" id="reminderEndTime" value="20:00">
+          </div>
+        </div>
+      </div>
+
+      <!-- إشعارات الهاتف المباشرة -->
+      <div class="input-group">
+        <label>🔔 إشعارات الهاتف المباشرة:</label>
+        <button type="button" class="btn btn-notif" id="notifPermBtn" onclick="requestNotificationPermission()">
+          📲 تفعيل إشعارات الهاتف Direct Notifications
+        </button>
+        <div id="notifStatusText" style="font-size: 0.75rem; color: var(--subtext); margin-top: 4px; text-align: center;"></div>
+      </div>
+
+      <!-- النغمة والملفات الخارجية -->
+      <div class="input-group">
+        <label for="alarmSoundSelect">🎵 اختر نغمة التنبيه والإشعارات:</label>
+        <div style="display: flex; gap: 8px;">
+          <select id="alarmSoundSelect" onchange="handleSoundSelectChange(); saveSettings();">
+            <option value="1">نغمة 1: جرس تنبيه عالي 🔔</option>
+            <option value="2">نغمة 2: صفارة إنذار قوية 🚨</option>
+            <option value="3">نغمة 3: نغمة ثلاثية حادة 🎼</option>
+            <option value="custom">📁 ملف صوتي/ترنيمة/أغنية من الجهاز</option>
+          </select>
+          <button type="button" onclick="playSelectedSound()" style="padding: 0 12px; background: var(--gold); border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: #000;">▶️ تجربة</button>
+        </div>
+
+        <div id="customSoundContainer" style="display: none; margin-top: 10px;">
+          <label for="customAudioInput" style="font-size: 0.8rem; color: var(--primary); font-weight: bold;">اختر ملف صوتي (MP3/WAV) من هاتفك:</label>
+          <input type="file" id="customAudioInput" accept="audio/*" onchange="handleCustomAudioUpload(event)">
+          <div id="customAudioName" style="font-size: 0.78rem; color: var(--subtext); margin-top: 5px; font-weight: 600;"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="stat-box">
+          <div class="stat-number" id="dailyQuota">15</div>
+          <div class="stat-label">رغيف يومياً</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="threeDaysQuota">45</div>
+          <div class="stat-label">رغيف كل 3 أيام</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- السجل -->
+    <div class="card">
+      <div class="card-title">📊 سجل عمليات الصرف</div>
+      <ul class="history-list" id="historyList">
+        <li style="text-align: center; color: var(--subtext);">لا توجد عمليات مسجلة.</li>
+      </ul>
+      <button class="btn btn-secondary" onclick="clearHistory()">مسح السجل</button>
+    </div>
+
+    <footer>
+      تطوير وترتيب <strong>Eng. Tony</strong> 
+    </footer>
+  </div>
+
+  <!-- مكتبات Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js"></script>
+
+  <script>
+    const daysArabic = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    let customAudioBase64 = localStorage.getItem('bread_custom_audio') || null;
+    let swRegistration = null;
+
+    /* --- إعداد فايربيز Firebase Messaging --- */
+    const firebaseConfig = {
+      apiKey: "AIzaSyBzCbEv09jVBLyKs2W5PSUHJZ9b5f5wox0",
+      authDomain: "bread-app-fa911.firebaseapp.com",
+      projectId: "bread-app-fa911",
+      storageBucket: "bread-app-fa911.firebasestorage.app",
+      messagingSenderId: "881646311297",
+      appId: "1:881646311297:web:8de38d7dd1d2533a23fa80",
+      measurementId: "G-D3WF378JCB"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    let messaging = null;
+    try {
+      if (firebase.messaging.isSupported()) {
+        messaging = firebase.messaging();
+      }
+    } catch(e) {
+      console.log('Firebase messaging not supported');
+    }
+
+    /* --- 1️⃣ تسجيل الـ Service Worker --- */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
         navigator.serviceWorker.register('./firebase-messaging-sw.js')
-          .then((registration) => {
-            console.log('تم العثور على Service Worker بنجاح.');
-            
-            return messaging.getToken({ 
-              vapidKey: 'BPQCg0zIJqQNCUioc6DGtbxMPfdAEywMfYVNVRvo6qliz2ErQFCLvMSNsROKkqlTaR0EfHQKw3sXOaEKF-vqjZo',
-              serviceWorkerRegistration: registration 
+          .then(reg => {
+            swRegistration = reg;
+            console.log('✅ Service Worker تعمل بنجاح:', reg.scope);
+
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  if (confirm('🎉 يوجد تحديث جديد للتطبيق! هل تريد التحديث الآن؟')) {
+                    window.location.reload();
+                  }
+                }
+              });
             });
           })
-          .then((currentToken) => {
-            if (currentToken) {
-              console.log('FCM Token:', currentToken);
-              if (tokenInput) tokenInput.value = currentToken; // سيظهر التوكن هنا فوراً
-            } else {
-              if (tokenInput) tokenInput.value = "لم يتم توليد توكن.";
-            }
-          })
-          .catch((err) => {
-            console.error('خطأ أثناء جلب التوكن:', err);
-            if (tokenInput) tokenInput.value = "خطأ: " + err.message;
+          .catch(err => {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+              swRegistration = reg;
+            }).catch(e => console.log('SW registration failed:', e));
           });
+      });
+    }
 
-      } else {
-        console.warn('تم رفض إذن الإشعارات.');
-        if (tokenInput) tokenInput.value = "تم رفض إذن الإشعارات من المتصفح.";
+    function flipCard() {
+      document.getElementById('smartCard').classList.toggle('flipped');
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('bread_theme', newTheme);
+      document.getElementById('themeBtn').innerText = newTheme === 'dark' ? '☀️' : '🌙';
+    }
+
+    function loadTheme() {
+      const savedTheme = localStorage.getItem('bread_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.getElementById('themeBtn').innerText = savedTheme === 'dark' ? '☀️' : '🌙';
+    }
+
+    function updateUserName() {
+      const inputVal = document.getElementById('userNameInput').value.trim();
+      const displayElem = document.getElementById('cardHolderDisplay');
+      displayElem.innerText = inputVal !== "" ? inputVal : "صاحب البطاقة";
+    }
+
+    /* --- 2️⃣ إدارة الإشعارات --- */
+    function checkNotificationStatus() {
+      const btn = document.getElementById('notifPermBtn');
+      const text = document.getElementById('notifStatusText');
+
+      if (!("Notification" in window)) {
+        text.innerText = "❌ هذا المتصفح لا يدعم إشعارات النظام المباشرة.";
+        btn.style.display = 'none';
+        return;
       }
-    }).catch((err) => {
-      console.error('خطأ في طلب الإذن:', err);
+
+      if (Notification.permission === "granted") {
+        btn.innerText = "✅ الإشعارات مفعّلة بنجاح";
+        btn.style.background = "#2e7d32";
+        text.innerText = "ستصلك التنبيهات المباشرة فور استحقاق الصرف.";
+      } else if (Notification.permission === "denied") {
+        btn.innerText = "🚫 الإشعارات محظورة من المتصفح";
+        btn.style.background = "#c62828";
+        text.innerText = "يمكنك إلغاء الحظر من إعدادات الموقع في المتصفح لتفعيل التنبيهات.";
+      } else {
+        btn.innerText = "📲 تفعيل إشعارات الهاتف Direct Notifications";
+        btn.style.background = "#0288d1";
+        text.innerText = "اضغط للسماح بالتطبيق بإرسال تنبيهات مباشرة.";
+      }
+    }
+
+    function requestNotificationPermission() {
+      if (!("Notification" in window)) {
+        alert("متصفحك لا يدعم الإشعارات.");
+        return;
+      }
+      Notification.requestPermission().then(permission => {
+        checkNotificationStatus();
+        if (permission === "granted") {
+          sendSystemNotification("تم تفعيل التنبيهات! 🔔", "ستتلقى إشعاراً تلقائياً فور توفر حصتك للخبز.");
+          
+          if (messaging) {
+            messaging.getToken({ vapidKey: 'BPQCg0zIJqQNCUioc6DGtbxMPfdAEywMfYVNVRvo6qliz2ErQFCLvMSNsROKkqlTaR0EfHQKw3sXOaEKF-vqjZo' })
+              .then((currentToken) => {
+                if (currentToken) {
+                  console.log('🔑 FCM Token الخاص بجهازك:', currentToken);
+                }
+              })
+              .catch((err) => {
+                console.error('حدث خطأ أثناء جلب الـ Token:', err);
+              });
+          }
+        }
+      });
+    }
+
+    function sendSystemNotification(title, body) {
+      if ("Notification" in window && Notification.permission === "granted") {
+        if (swRegistration) {
+          swRegistration.showNotification(title, {
+            body: body,
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            vibrate: [200, 100, 200]
+          });
+        } else {
+          new Notification(title, {
+            body: body,
+            icon: './icon-192.png'
+          });
+        }
+      }
+    }
+
+    /* --- 3️⃣ إدارة ملفات الصوت والنغمات --- */
+    function handleSoundSelectChange() {
+      const soundType = document.getElementById('alarmSoundSelect').value;
+      const container = document.getElementById('customSoundContainer');
+      container.style.display = soundType === 'custom' ? 'block' : 'none';
+    }
+
+    function handleCustomAudioUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('تنبيه: الملف كبير جداً. يُفضل اختيار مقطع صوتي بحجم أقل من 5 ميجابايت.');
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        customAudioBase64 = e.target.result;
+        try {
+          localStorage.setItem('bread_custom_audio', customAudioBase64);
+          localStorage.setItem('bread_custom_audio_name', file.name);
+          document.getElementById('customAudioName').innerText = '🎵 الملف المعتمد: ' + file.name;
+          alert('تم حفظ الملف الصوتي بنجاح! 🎉');
+        } catch (err) {
+          alert('الملف الصوتي كبير جداً على الذاكرة المحلية، يرجى اختيار ملف أصغر حجماً.');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function playSelectedSound() {
+      const soundType = document.getElementById('alarmSoundSelect').value;
+
+      if (soundType === "custom") {
+        if (!customAudioBase64) {
+          alert("يرجى اختيار ملف صوتي من جهازك أولاً من الزر أدناه!");
+          return;
+        }
+        const audio = new Audio(customAudioBase64);
+        audio.play().catch(e => {
+          alert("حدث خطأ أثناء تشغيل الملف الصوتي.");
+          console.log(e);
+        });
+        return;
+      }
+
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      if (soundType === "1") {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+      } 
+      else if (soundType === "2") {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.2);
+        osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+      } 
+      else if (soundType === "3") {
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, index) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime + index * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (index + 1) * 0.12);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + index * 0.12);
+          osc.stop(audioCtx.currentTime + (index + 1) * 0.12);
+        });
+      }
+    }
+
+    /* --- 4️⃣ التحكم في فترة التنبيه اليومي --- */
+    function isWithinNotificationWindow() {
+      const startTimeStr = localStorage.getItem('reminderStartTime') || '08:00';
+      const endTimeStr = localStorage.getItem('reminderEndTime') || '20:00';
+
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      const [startH, startM] = startTimeStr.split(':').map(Number);
+      const [endH, endM] = endTimeStr.split(':').map(Number);
+
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+
+      if (startMinutes <= endMinutes) {
+        return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+      } else {
+        return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+      }
+    }
+
+    function saveTimeWindowSettings() {
+      const startInput = document.getElementById('reminderStartTime');
+      const endInput = document.getElementById('reminderEndTime');
+      if (startInput && endInput) {
+        localStorage.setItem('reminderStartTime', startInput.value);
+        localStorage.setItem('reminderEndTime', endInput.value);
+      }
+    }
+
+    function loadTimeWindowSettings() {
+      const savedStart = localStorage.getItem('reminderStartTime') || '08:00';
+      const savedEnd = localStorage.getItem('reminderEndTime') || '20:00';
+
+      const startInput = document.getElementById('reminderStartTime');
+      const endInput = document.getElementById('reminderEndTime');
+
+      if (startInput) startInput.value = savedStart;
+      if (endInput) endInput.value = savedEnd;
+    }
+
+    /* --- 5️⃣ التنبيه التلقائي الدوري (كل 13 دقيقة) --- */
+    function startRecurringReminder() {
+      const MINUTES = 13;
+      const INTERVAL_MS = MINUTES * 60 * 1000;
+
+      setInterval(() => {
+        if (!isWithinNotificationWindow()) return;
+
+        const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
+        
+        let isReady = false;
+        if (!lastRecord) {
+          isReady = true;
+        } else {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const nextAllowedDate = new Date(lastRecord.nextDateISO);
+          nextAllowedDate.setHours(0, 0, 0, 0);
+          if (today >= nextAllowedDate) {
+            isReady = true;
+          }
+        }
+
+        if (isReady) {
+          sendSystemNotification('🍞 تذكير صباحي بالخبز', 'تذكير: بطاقتك جاهزة للصرف اليوم، يرجى التوجه للمخبز!');
+          playSelectedSound();
+        }
+      }, INTERVAL_MS);
+    }
+
+    /* --- 6️⃣ حاسبة فارق نقاط الخبز --- */
+    function calculateBreadPoints() {
+      const members = parseInt(document.getElementById('members').value) || 1;
+      const today = new Date();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const dayOfMonth = today.getDate();
+
+      const expectedLoavesToDate = dayOfMonth * members * 5;
+
+      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
+      let actualClaimedInMonth = 0;
+
+      history.forEach(item => {
+        if (item.timestamp) {
+          const recDate = new Date(item.timestamp);
+          if (recDate.getMonth() === currentMonth && recDate.getFullYear() === currentYear) {
+            actualClaimedInMonth += item.breadAmount || 0;
+          }
+        }
+      });
+
+      const savedLoavesCount = Math.max(0, expectedLoavesToDate - actualClaimedInMonth);
+      const pointsValueEGP = (savedLoavesCount * 0.10).toFixed(2);
+
+      document.getElementById('savedLoaves').innerText = savedLoavesCount;
+      document.getElementById('savedPointsValue').innerText = `${pointsValueEGP} ج.م`;
+    }
+
+    function getSelectedDate() {
+      const val = document.getElementById('collectionDate').value;
+      if (!val) return new Date();
+      const [year, month, day] = val.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function initDatePicker() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      document.getElementById('collectionDate').value = `${yyyy}-${mm}-${dd}`;
+      onDateChange();
+    }
+
+    function onDateChange() {
+      const selectedDate = getSelectedDate();
+      const daysSelect = document.getElementById('daysCollected');
+      const ruleNote = document.getElementById('ruleNote');
+
+      if (selectedDate.getDate() === 1) {
+        daysSelect.value = "1";
+        daysSelect.disabled = true;
+        ruleNote.style.display = "block";
+      } else {
+        daysSelect.disabled = false;
+        ruleNote.style.display = "none";
+      }
+      updatePreview();
+    }
+
+    function updateQuota() {
+      const members = parseInt(document.getElementById('members').value) || 1;
+      document.getElementById('dailyQuota').innerText = members * 5;
+      document.getElementById('threeDaysQuota').innerText = members * 15;
+    }
+
+    function updatePreview() {
+      const selectedDate = getSelectedDate();
+      const days = parseInt(document.getElementById('daysCollected').value) || 1;
+      const members = parseInt(document.getElementById('members').value) || 1;
+      const totalLoaves = days * members * 5;
+
+      const nextAllowedDate = new Date(selectedDate);
+      nextAllowedDate.setDate(selectedDate.getDate() + days);
+
+      const dayName = daysArabic[nextAllowedDate.getDay()];
+      const yyyy = nextAllowedDate.getFullYear();
+      const mm = String(nextAllowedDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(nextAllowedDate.getDate()).padStart(2, '0');
+
+      document.getElementById('previewBox').innerHTML = `
+        📦 <strong>عدد الأرغفة المستحقة:</strong> ${totalLoaves} رغيف (${days} أيام)<br>
+        📅 <strong>موعد الصرف القادم:</strong> ${dayName} (${yyyy}-${mm}-${dd})
+      `;
+    }
+
+    function recordCollection(customDate = null, customDays = null) {
+      const selectedDate = customDate || getSelectedDate();
+      const days = customDays || parseInt(document.getElementById('daysCollected').value);
+      const members = parseInt(document.getElementById('members').value) || 1;
+      const totalLoaves = days * members * 5;
+
+      const nextAllowedDate = new Date(selectedDate);
+      nextAllowedDate.setDate(selectedDate.getDate() + days);
+
+      const record = {
+        timestamp: selectedDate.toISOString(),
+        nextDateISO: nextAllowedDate.toISOString(),
+        days: days,
+        breadAmount: totalLoaves
+      };
+
+      localStorage.setItem('last_bread_record', JSON.stringify(record));
+
+      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
+      history.unshift(record);
+      localStorage.setItem('bread_history', JSON.stringify(history));
+
+      updateUI();
+      calculateBreadPoints();
+      renderHistory();
+      alert('✅ تم تسجيل عملية الصرف بنجاح!');
+    }
+
+    function quickRecordToday() {
+      const today = new Date();
+      if (today.getDate() === 1) {
+        recordCollection(today, 1);
+      } else {
+        recordCollection(today, 3);
+      }
+    }
+
+    function updateUI() {
+      const today = new Date();
+      const dayName = daysArabic[today.getDay()];
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      document.getElementById('todayDateDisplay').innerText = `📆 تاريخ اليوم: ${dayName} ${yyyy}-${mm}-${dd}`;
+
+      const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
+      const statusCard = document.getElementById('statusCard');
+      const nextDisplay = document.getElementById('nextAllowedDisplay');
+      const subtext = document.getElementById('statusSubtext');
+
+      if (!lastRecord) {
+        statusCard.classList.remove('waiting');
+        nextDisplay.innerText = "جاهز للصرف اليوم! 🥖";
+        subtext.innerText = "لم تقم بتسجيل أي عملية صرف سابقة.";
+        return;
+      }
+
+      const nextDate = new Date(lastRecord.nextDateISO);
+      today.setHours(0,0,0,0);
+      const checkNext = new Date(nextDate);
+      checkNext.setHours(0,0,0,0);
+
+      if (today >= checkNext) {
+        statusCard.classList.remove('waiting');
+        nextDisplay.innerText = "جاهز للصرف اليوم! 🥖";
+        subtext.innerText = "يمكنك الآن الذهاب للمخبز وصرف حصتك.";
+      } else {
+        statusCard.classList.add('waiting');
+        const nextDayName = daysArabic[nextDate.getDay()];
+        const nYyyy = nextDate.getFullYear();
+        const nM = String(nextDate.getMonth() + 1).padStart(2, '0');
+        const nD = String(nextDate.getDate()).padStart(2, '0');
+        
+        const diffTime = checkNext - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        nextDisplay.innerText = `${nextDayName} (${nYyyy}-${nM}-${nD})`;
+        subtext.innerText = `متبقي ${diffDays} يوم/أيام على الموعد المسموح به للصرف.`;
+      }
+    }
+
+    function updateGroceriesUI() {
+      const currentMonthKey = new Date().getFullYear() + '-' + (new Date().getMonth() + 1);
+      const claimedMonth = localStorage.getItem('groceries_claimed_month');
+      const statusBox = document.getElementById('groceriesStatusBox');
+      const btn = document.getElementById('groceriesBtn');
+
+      if (claimedMonth === currentMonthKey) {
+        statusBox.innerHTML = "✅ تم صرف التموين لهذا الشهر بالكامل!";
+        statusBox.style.color = "var(--primary)";
+        btn.innerText = "إلغاء تحديد الصرف ↩️";
+        btn.className = "btn btn-claimed";
+      } else {
+        statusBox.innerHTML = "⏳ لم يتم تسجيل صرف التموين للشهر الحالي بعد.";
+        statusBox.style.color = "#ef6c00";
+        btn.innerText = "تم صرف تموين الشهر الحالي ✅";
+        btn.className = "btn btn-success";
+      }
+    }
+
+    function toggleGroceriesClaim() {
+      const currentMonthKey = new Date().getFullYear() + '-' + (new Date().getMonth() + 1);
+      const claimedMonth = localStorage.getItem('groceries_claimed_month');
+
+      if (claimedMonth === currentMonthKey) {
+        localStorage.removeItem('groceries_claimed_month');
+      } else {
+        localStorage.setItem('groceries_claimed_month', currentMonthKey);
+      }
+      updateGroceriesUI();
+    }
+
+    function saveSettings() {
+      localStorage.setItem('bread_user_name', document.getElementById('userNameInput').value);
+      localStorage.setItem('bread_members', document.getElementById('members').value);
+      localStorage.setItem('bread_groceries_day', document.getElementById('groceriesDay').value);
+      localStorage.setItem('bread_alarm_sound', document.getElementById('alarmSoundSelect').value);
+      saveTimeWindowSettings();
+    }
+
+    function loadSettings() {
+      const name = localStorage.getItem('bread_user_name') || '';
+      const members = localStorage.getItem('bread_members') || '3';
+      const gDay = localStorage.getItem('bread_groceries_day') || '1';
+      const sound = localStorage.getItem('bread_alarm_sound') || '1';
+
+      document.getElementById('userNameInput').value = name;
+      document.getElementById('members').value = members;
+      document.getElementById('groceriesDay').value = gDay;
+      document.getElementById('alarmSoundSelect').value = sound;
+
+      const customAudioName = localStorage.getItem('bread_custom_audio_name');
+      if (customAudioName) {
+        document.getElementById('customAudioName').innerText = '🎵 الملف المعتمد: ' + customAudioName;
+      }
+
+      updateUserName();
+      updateQuota();
+      handleSoundSelectChange();
+      loadTimeWindowSettings();
+    }
+
+    function renderHistory() {
+      const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
+      const listElem = document.getElementById('historyList');
+
+      if (history.length === 0) {
+        listElem.innerHTML = '<li style="text-align: center; color: var(--subtext);">لا توجد عمليات مسجلة.</li>';
+        return;
+      }
+
+      listElem.innerHTML = history.slice(0, 10).map(item => {
+        const date = new Date(item.timestamp);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        return `<li>
+          <span>📅 ${dateStr}</span>
+          <span class="badge">${item.breadAmount} رغيف (${item.days} أيام)</span>
+        </li>`;
+      }).join('');
+    }
+
+    function clearHistory() {
+      if (confirm('هل أنت تأكد من مسح جميع سجلات الصرف؟')) {
+        localStorage.removeItem('bread_history');
+        localStorage.removeItem('last_bread_record');
+        renderHistory();
+        updateUI();
+        calculateBreadPoints();
+      }
+    }
+
+    /* --- التهيئة عند التحميل --- */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadTheme();
+      loadSettings();
+      initDatePicker();
+      updateUI();
+      updateGroceriesUI();
+      calculateBreadPoints();
+      renderHistory();
+      checkNotificationStatus();
+      startRecurringReminder();
+
+      document.getElementById('reminderStartTime')?.addEventListener('change', saveTimeWindowSettings);
+      document.getElementById('reminderEndTime')?.addEventListener('change', saveTimeWindowSettings);
     });
-  }
-</script>
+  </script>
+</body>
+</html>
