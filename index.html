@@ -2,38 +2,55 @@
   <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">🔑 رمز التنبيهات (FCM Token):</label>
   <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="جاري جلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px; direction: ltr; text-align: left; border: 1px solid #ccc; border-radius: 6px; resize: none;"></textarea>
 </div>
+<div style="margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.05); border-radius: 8px; text-align: center;">
+  <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">🔑 رمز التنبيهات (FCM Token):</label>
+  <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="جاري جلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px; direction: ltr; text-align: left; border: 1px solid #ccc; border-radius: 6px; resize: none;"></textarea>
+</div>
 <script>
-// دالة عرض التوكن في المربع
-function requestAndShowFcmToken() {
-  const tokenInput = document.getElementById('fcmTokenDisplay');
-  if (tokenInput) {
-    tokenInput.value = "جاري طلب إذن الإشعارات وجلب التوكن...";
+  function requestAndShowFcmToken() {
+    const tokenInput = document.getElementById('fcmTokenDisplay');
+    if (tokenInput) {
+      tokenInput.value = "جاري طلب إذن الإشعارات وجلب التوكن...";
+    }
+
+    // 1. طلب إذن الإشعارات من المتصفح أولاً
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        console.log('تم قبول إذن الإشعارات.');
+
+        // 2. تسجيل Service Worker يدوياً ليتوافق مع GitHub Pages
+        navigator.serviceWorker.register('./firebase-messaging-sw.js')
+          .then((registration) => {
+            console.log('تم العثور على Service Worker بنجاح.');
+            
+            // 3. تمرير التسجيل والمفتاح إلى فايربيس
+            return messaging.getToken({ 
+              vapidKey: 'BPQCg0zIJqQNCUioc6DGtbxMPfdAEywMfYVNVRvo6qliz2ErQFCLvMSNsROKkqlTaR0EfHQKw3sXOaEKF-vqjZo',
+              serviceWorkerRegistration: registration 
+            });
+          })
+          .then((currentToken) => {
+            if (currentToken) {
+              console.log('FCM Token:', currentToken);
+              if (tokenInput) tokenInput.value = currentToken; // عرض التوكن في المربع
+            } else {
+              if (tokenInput) tokenInput.value = "لم يتم توليد توكن.";
+            }
+          })
+          .catch((err) => {
+            console.error('خطأ أثناء جلب التوكن:', err);
+            if (tokenInput) tokenInput.value = "خطأ: " + err.message;
+          });
+
+      } else {
+        console.warn('تم رفض إذن الإشعارات.');
+        if (tokenInput) tokenInput.value = "تم رفض إذن الإشعارات من المتصفح.";
+      }
+    }).catch((err) => {
+      console.error('خطأ في طلب الإذن:', err);
+    });
   }
 
-  Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      console.log('تم قبول إذن الإشعارات.');
-      
-      // 🔥 ضع المفتاح الذي نسخته هنا داخل الأقواس:
-      messaging.getToken({ vapidKey: 'BPQCg0zIJqQNCUioc6DGtbxMPfdAEywMfYVNVRvo6qliz2ErQFCLvMSNsROKkqlTaR0EfHQKw3sXOaEKF-vqjZo' })
-        .then((currentToken) => {
-          if (currentToken) {
-            console.log('FCM Token:', currentToken);
-            showFcmTokenOnScreen(currentToken);
-          } else {
-            if (tokenInput) tokenInput.value = "لم يتم توليد توكن جديد من المتصفح.";
-          }
-        })
-        .catch((err) => {
-          console.error('خطأ أثناء جلب التوكن:', err);
-          if (tokenInput) tokenInput.value = "خطأ في جلب التوكن: " + err.message;
-        });
-    } else {
-      console.warn('تم رفض إذن الإشعارات.');
-      if (tokenInput) tokenInput.value = "تم رفض إذن الإشعارات من المتصفح/الموبايل.";
-    }
-  }).catch((err) => {
-    if (tokenInput) tokenInput.value = "خطأ في طلب الإذن: " + err.message;
-  });
-}
+  // تشغيل الدالة تلقائياً عند فتح الصفحة
+  requestAndShowFcmToken();
 </script>
