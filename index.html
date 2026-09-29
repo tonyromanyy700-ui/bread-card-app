@@ -1,7 +1,7 @@
-<!-- ضع div واحد فقط بالـ id الصحيح -->
 <div style="margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.05); border-radius: 8px; text-align: center;">
   <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">🔑 رمز التنبيهات (FCM Token)</label>
-  <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="جاري جلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px;"></textarea>
+  <textarea id="fcmTokenDisplay" readonly rows="3" placeholder="اضغط على الزر أدناه لجلب التوكن..." style="width: 100%; padding: 8px; font-size: 11px;"></textarea>
+  <button onclick="requestAndShowFcmToken()" style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px;">اضغط هنا لجلب التوكن 🔔</button>
 </div>
 
 <!-- تحميل مكتبات فايربيس -->
@@ -9,7 +9,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js"></script>
 
 <script>
-  // تهيئة إعدادات فايربيس وتعريف messaging
   const firebaseConfig = {
     apiKey: "AIzaSyBzCbEv09jVBLyKs2W5PSUHJZ9b5f5wox0",
     authDomain: "bread-app-fa911.firebaseapp.com",
@@ -23,7 +22,6 @@
   firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
 
-  // دالة طلب الإذن وجلب التوكن
   function requestAndShowFcmToken() {
     const tokenInput = document.getElementById('fcmTokenDisplay');
     if (tokenInput) {
@@ -64,7 +62,4 @@
       console.error('خطأ في طلب الإذن:', err);
     });
   }
-
-  // تشغيل الدالة فور تحميل الصفحة
-  requestAndShowFcmToken();
 </script>
