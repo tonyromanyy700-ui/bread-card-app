@@ -406,7 +406,55 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js"></script>
 
   <script>
-    const daysArabic = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    // دوال مساعدة لمنع مشكلة فروق التوقيت (Timezone Shift)
+function toLocalDateISO(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(isoStr) {
+  if (!isoStr) return new Date();
+  // لو التاريخ القديم مخزن بصيغة فيها T، نقصها عشان نقرأ التاريخ صح
+  if (isoStr.includes('T')) {
+    isoStr = isoStr.split('T')[0];
+  }
+  const parts = isoStr.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts.map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(isoStr);
+}
+function parseLocalDate(isoStr) {
+  if (!isoStr) return new Date();
+  if (isoStr.includes('T')) {
+    isoStr = isoStr.split('T')[0];
+  }
+  const parts = isoStr.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts.map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(isoStr);
+}
+
+// ضيف الدالتين هنا 👇
+function formatStandardDate(date) {
+  const d = date.getDate();
+  const m = date.getMonth() + 1;
+  const y = date.getFullYear();
+  return `${d}/${m}`;
+}
+
+function formatStandardFullDate(date) {
+  const d = date.getDate();
+  const m = date.getMonth() + 1;
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+     const daysArabic = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
     let customAudioBase64 = localStorage.getItem('bread_custom_audio') || null;
     let swRegistration = null;
 
@@ -469,14 +517,16 @@
       return testDate.getDate() === lastDayNumber;
     }
 
-    // دالة تحديد الأيام والحصة تلقائياً بناءً على قواعدك
-    function getAutomaticDays(date) {
-      const day = date.getDate();
-      if (day === 1 || isLastDayOfMonth(date)) {
-        return 1; // حصة يوم واحد (15 رغيف) لأول أو آخر الشهر
-      }
-      return 3; // حصة 3 أيام (45 رغيف) لباقي الأيام
-    }
+    // دالة تحديد الأيام والحصة للخصم: أول الشهر وآخر الشهر يوم واحد، وباقي الأيام 3 أيام
+function getAutomaticDays(date) {
+  const day = date.getDate();
+  
+  if (day === 1 || isLastDayOfMonth(date)) {
+    return 1; // خصم يوم واحد (15 رغيفاً)
+  }
+  
+  return 3; // خصم 3 أيام (45 رغيفاً) لباقي الأيام
+}
 
     function checkNotificationStatus() {
       const btn = document.getElementById('notifPermBtn');
@@ -632,32 +682,40 @@
       onDateChange();
     }
 
-    function onDateChange() {
-      const date = getSelectedDate();
-      const day = date.getDate();
-      const ruleNote = document.getElementById('ruleNote');
-      const days = getAutomaticDays(date);
-      const members = parseInt(document.getElementById('members').value) || 1;
-      const totalLoaves = days * members * 5;
+function onDateChange() {
+  const date = getSelectedDate();
+  const day = date.getDate();
+  const ruleNote = document.getElementById('ruleNote');
+  
+  // عدد أيام الحصة المخصومة (1 للأول والأخير، 3 للباقي)
+  const deductionDays = getAutomaticDays(date);
+  const members = parseInt(document.getElementById('members').value) || 1;
+  const totalLoaves = deductionDays * members * 5;
 
-      const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + days);
+  // تحديد الأيام المضافة لموعد الصرف القادم
+  let intervalDays = deductionDays;
+  if (day === 1) {
+    intervalDays = 3; // لو يوم 1: الخصم يوم واحد، لكن موعد الصرف القادم بعد 3 أيام (يعني يوم 4)
+  }
 
-      const previewBox = document.getElementById('previewBox');
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + intervalDays);
 
-      if (day === 1) {
-        ruleNote.style.display = 'block';
-        ruleNote.innerHTML = '📌 <strong>تحديد تلقائي:</strong> أول يوم في الشهر (حصة يوم واحد = 15 رغيفاً).';
-      } else if (isLastDayOfMonth(date)) {
-        ruleNote.style.display = 'block';
-        ruleNote.innerHTML = `📌 <strong>تحديد تلقائي:</strong> آخر يوم في الشهر (${day} في الشهر، حصة يوم واحد = 15 رغيفاً).`;
-      } else {
-        ruleNote.style.display = 'none';
-      }
+  const previewBox = document.getElementById('previewBox');
 
-      previewBox.innerHTML = `🤖 <strong>حساب تلقائي ذكي:</strong> تم تحديد الحصة بـ <strong>${days} يوم (${totalLoaves} رغيف)</strong>.<br>⏳ موعد الصرف القادم المسموح به: <strong>${daysArabic[nextDate.getDay()]} ${nextDate.toLocaleDateString('ar-EG')}</strong>`;
-    }
+  // رسائل التنبيه التلقائي
+  if (isLastDayOfMonth(date)) {
+    ruleNote.style.display = 'block';
+    ruleNote.innerHTML = `📌 <strong>تحديد تلقائي:</strong> آخر الشهر، حصة يوم واحد (15 رغيفاً).`;
+  } else if (day === 1) {
+    ruleNote.style.display = 'block';
+    ruleNote.innerHTML = `📌 <strong>تحديد تلقائي:</strong> أول الشهر، حصة يوم واحد (15 رغيفاً) - موعد الصرف القادم بعد 3 أيام.`;
+  } else {
+    ruleNote.style.display = 'none';
+  }
 
+  previewBox.innerHTML = `🤖 <strong>حساب تلقائي ذكي:</strong> تم خصم <strong>${deductionDays} يوم (${totalLoaves} رغيف)</strong>.<br>⏳ موعد الصرف القادم المسموح به: <strong>${daysArabic[nextDate.getDay()]} ${nextDate.toLocaleDateString('ar-EG')}</strong>`;
+}
     function recordCollection() {
       const date = getSelectedDate();
       const days = getAutomaticDays(date);
@@ -665,16 +723,16 @@
       const totalLoaves = days * members * 5;
 
       const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + days);
+  nextDate.setDate(nextDate.getDate() + days);
 
-      const record = {
-        timestamp: date.toISOString(),
-        formattedDate: date.toLocaleDateString('ar-EG'),
-        breadAmount: totalLoaves,
-        days: days,
-        nextDateISO: nextDate.toISOString(),
-        nextDateFormatted: nextDate.toLocaleDateString('ar-EG')
-      };
+  const record = {
+    timestamp: toLocalDateISO(date),
+    formattedDate: date.toLocaleDateString('ar-EG'),
+    breadAmount: totalLoaves,
+    days: days,
+    nextDateISO: toLocalDateISO(nextDate),
+    nextDateFormatted: nextDate.toLocaleDateString('ar-EG')
+  };
 
       let history = JSON.parse(localStorage.getItem('bread_history') || '[]');
       history.unshift(record);
@@ -687,69 +745,70 @@
       alert('تم تسجيل الصرف التلقائي بنجاح! 🎉');
     }
 
-    function quickRecordToday() {
-      const today = new Date();
-      const days = getAutomaticDays(today);
-      const members = parseInt(document.getElementById('members').value) || 1;
-      const totalLoaves = days * members * 5;
+function quickRecordToday() {
+    const today = new Date();
+    const days = 3; // ثبتناها 3 أيام عشان 15 رغيف = 3 أيام
+    const members = parseInt(document.getElementById('members').value) || 1;
+    const totalLoaves = days * members * 5;
 
-      const nextDate = new Date(today);
-      nextDate.setDate(nextDate.getDate() + days);
+    const nextDate = new Date(today);
+    nextDate.setDate(nextDate.getDate() + days);
 
-      const record = {
-        timestamp: today.toISOString(),
-        formattedDate: today.toLocaleDateString('ar-EG'),
-        breadAmount: totalLoaves,
-        days: days,
-        nextDateISO: nextDate.toISOString(),
-        nextDateFormatted: nextDate.toLocaleDateString('ar-EG')
-      };
+    const record = {
+      timestamp: toLocalDateISO(today),
+      formattedDate: formatStandardDate(today),       // <-- التعديل هنا
+      breadAmount: totalLoaves,
+      days: days,
+      nextDateISO: toLocalDateISO(nextDate),
+      nextDateFormatted: formatStandardFullDate(nextDate) // <-- التعديل هنا
+    };
 
-      let history = JSON.parse(localStorage.getItem('bread_history') || '[]');
-      history.unshift(record);
-      localStorage.setItem('bread_history', JSON.stringify(history));
-      localStorage.setItem('last_bread_record', JSON.stringify(record));
+    let history = JSON.parse(localStorage.getItem('bread_history') || '[]');
+    history.unshift(record);
+    localStorage.setItem('bread_history', JSON.stringify(history));
+    localStorage.setItem('last_bread_record', JSON.stringify(record));
 
-      updateUIState();
-      calculateBreadPoints();
-      renderHistory();
-      sendSystemNotification('✅ تم تسجيل صرف الخبز', `تم تسجيل صرف ${totalLoaves} رغيف تلقائياً.`);
-      alert('تم تسجيل صرف اليوم تلقائياً بنجاح! ⚡');
+    updateUIState();
+    calculateBreadPoints();
+    renderHistory();
+    sendSystemNotification('✅ تم تسجيل صرف الخبز', `تم تسجيل صرف ${totalLoaves} رغيف تلقائياً.`);
+    alert('تم تسجيل صرف اليوم تلقائياً بنجاح! ⚡');
+  }
+
+  function updateUIState() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // <-- التعديل هنا عشان يظهر بالأرقام الإنجليزية الواضحة
+    document.getElementById('todayDateDisplay').innerText = `📆 تاريخ اليوم: ${daysArabic[today.getDay()]} ${formatStandardFullDate(today)}`;
+
+    const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
+    const statusCard = document.getElementById('statusCard');
+    const nextAllowedDisplay = document.getElementById('nextAllowedDisplay');
+    const statusSubtext = document.getElementById('statusSubtext');
+
+    if (!lastRecord) {
+      statusCard.className = 'status-card';
+      nextAllowedDisplay.innerText = 'جاهز للصرف اليوم!';
+      statusSubtext.innerText = 'لم تقم بتسجيل أي عمليات صرف سابقاً.';
+      return;
     }
 
-    function updateUIState() {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      document.getElementById('todayDateDisplay').innerText = `📆 تاريخ اليوم: ${daysArabic[today.getDay()]} ${today.toLocaleDateString('ar-EG')}`;
+    const nextDate = parseLocalDate(lastRecord.nextDateISO);
+    nextDate.setHours(0, 0, 0, 0);
 
-      const lastRecord = JSON.parse(localStorage.getItem('last_bread_record'));
-      const statusCard = document.getElementById('statusCard');
-      const nextAllowedDisplay = document.getElementById('nextAllowedDisplay');
-      const statusSubtext = document.getElementById('statusSubtext');
-
-      if (!lastRecord) {
-        statusCard.className = 'status-card';
-        nextAllowedDisplay.innerText = 'جاهز للصرف اليوم!';
-        statusSubtext.innerText = 'لم تقم بتسجيل أي عمليات صرف سابقاً.';
-        return;
-      }
-
-      const nextDate = new Date(lastRecord.nextDateISO);
-      nextDate.setHours(0, 0, 0, 0);
-
-      if (today >= nextDate) {
-        statusCard.className = 'status-card';
-        nextAllowedDisplay.innerText = 'جاهز للصرف اليوم! 🟢';
-        statusSubtext.innerText = `آخر صرف كان بتاريخ ${lastRecord.formattedDate}`;
-      } else {
-        statusCard.className = 'status-card waiting';
-        const diffTime = nextDate - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        nextAllowedDisplay.innerText = `${daysArabic[nextDate.getDay()]} ${nextDate.toLocaleDateString('ar-EG')}`;
-        statusSubtext.innerText = `متبقي حوالي ${diffDays} يوم على موعد الصرف القادم.`;
-      }
+    if (today >= nextDate) {
+      statusCard.className = 'status-card';
+      nextAllowedDisplay.innerText = 'جاهز للصرف اليوم! 🟢';
+      statusSubtext.innerText = `آخر صرف كان بتاريخ ${lastRecord.formattedDate}`;
+    } else {
+      statusCard.className = 'status-card waiting';
+      const diffTime = nextDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      nextAllowedDisplay.innerText = `متبقي ${diffDays} يوم`;
+      statusSubtext.innerText = `موعد الصرف القادم: ${lastRecord.nextDateFormatted}`;
     }
-
+  }
     function renderHistory() {
       const historyList = document.getElementById('historyList');
       const history = JSON.parse(localStorage.getItem('bread_history') || '[]');
