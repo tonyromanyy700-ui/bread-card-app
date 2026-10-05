@@ -43,12 +43,19 @@ async function checkAndSendAlarms() {
 
       const alarmMinutes = timeToMinutes(alarmData.alarmTime);
 
-      // مقارنة ذكية: إذا كان وقت التنبيه قد حان أو فات (أقل من أو يساوي الوقت الحالي)
-      if (alarmMinutes <= currentMinutes) {
-        console.log(`Alarm matched! Sending notification for token: ${alarmData.token}`);
+    if (alarmMinutes <= currentMinutes) {
+        // البحث عن الtoken بأكثر من اسم محتمل لضمان عدم حدوث خطأ undefined
+        const fcmToken = alarmData.token || alarmData.fcmToken || alarmData.deviceToken;
+
+        if (!fcmToken) {
+          console.error(`Error: Token is missing for alarm ${doc.id}`);
+          continue;
+        }
+
+        console.log(`Alarm matched! Sending notification for token: ${fcmToken}`);
 
         const message = {
-          token: alarmData.token,
+          token: fcmToken,
           notification: {
             title: 'تنبيه حصة العيش والتموين',
             body: 'ميعاد استحقاق التنبيه الخاص بك قد حان الآن!'
@@ -64,12 +71,5 @@ async function checkAndSendAlarms() {
           console.error(`Error sending message for ${doc.id}:`, messagingError);
         }
       }
-    }
-
-    console.log(`Check completed. Notifications sent: ${sentCount}`);
-  } catch (error) {
-    console.error('Error checking alarms:', error);
-  }
-}
 
 checkAndSendAlarms();
