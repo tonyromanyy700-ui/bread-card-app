@@ -1,6 +1,5 @@
 const admin = require('firebase-admin');
 
-// تهيئة فايربيز باستخدام متغير البيئة المحفوظ في جيت هاب
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
@@ -9,9 +8,14 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// دالة لتحويل صيغة الوقت (HH:mm) إلى دقائق إجمالية لمقارنة دقيقة
+function timeToMinutes(timeStr) {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
 async function checkAndSendAlarms() {
   try {
-    // الحصول على الوقت الحالي بتوقيت مصر (Africa/Cairo) بصيغة HH:mm
     const options = {
       timeZone: 'Africa/Cairo',
       hour: '2-digit',
@@ -23,7 +27,6 @@ async function checkAndSendAlarms() {
     
     console.log(`Current Cairo Time: ${currentTime}`);
 
-    // جلب التنبيهات غير المرسلة من قاعدة البيانات
     const snapshot = await db.collection('alarms').where('isSent', '==', false).get();
 
     if (snapshot.empty) {
@@ -32,16 +35,18 @@ async function checkAndSendAlarms() {
     }
 
     let sentCount = 0;
+    const currentMinutes = timeToMinutes(currentTime);
 
     for (const doc of snapshot.docs) {
       const alarmData = doc.data();
       console.log(`Checking alarm: ID=${doc.id}, alarmTime=${alarmData.alarmTime}`);
 
-      // مقارنة وقت التنبيه المخزن مع الوقت الحالي في مصر
-      if (alarmData.alarmTime === currentTime) {
+      const alarmMinutes = timeToMinutes(alarmData.alarmTime);
+
+      // مقارنة ذكية: إذا كان وقت التنبيه قد حان أو فات (أقل من أو يساوي الوقت الحالي)
+      if (alarmMinutes <= currentMinutes) {
         console.log(`Alarm matched! Sending notification for token: ${alarmData.token}`);
 
-        // إرسال الإشعار عبر Firebase Cloud Messaging (FCM)
         const message = {
           token: alarmData.token,
           notification: {
@@ -52,7 +57,6 @@ async function checkAndSendAlarms() {
 
         try {
           await admin.messaging().send(message);
-          // تحديث الحقل لتصبح isSent تساوي true حتى لا يتكرر الإشعار
           await db.collection('alarms').doc(doc.id).update({ isSent: true });
           sentCount++;
           console.log(`Notification sent successfully for alarm ${doc.id}`);
