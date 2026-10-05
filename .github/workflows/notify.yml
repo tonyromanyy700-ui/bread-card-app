@@ -2,9 +2,8 @@ name: Check Bread Alarms
 
 on:
   schedule:
-    # يعمل تلقائياً كل ساعة
     - cron: '0 * * * *'
-  workflow_dispatch: # يتيح لك تشغيله يدوياً للتجربة من موقع جيت هاب متى شئت
+  workflow_dispatch:
 
 jobs:
   notify:
@@ -23,5 +22,5 @@ jobs:
 
       - name: Run notification script
         env:
-        FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node check-alarms.js
