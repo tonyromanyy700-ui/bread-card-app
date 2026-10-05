@@ -8,7 +8,6 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// دالة لتحويل صيغة الوقت (HH:mm) إلى دقائق إجمالية لمقارنة دقيقة
 function timeToMinutes(timeStr) {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
@@ -43,8 +42,7 @@ async function checkAndSendAlarms() {
 
       const alarmMinutes = timeToMinutes(alarmData.alarmTime);
 
-    if (alarmMinutes <= currentMinutes) {
-        // البحث عن الtoken بأكثر من اسم محتمل لضمان عدم حدوث خطأ undefined
+      if (alarmMinutes <= currentMinutes) {
         const fcmToken = alarmData.token || alarmData.fcmToken || alarmData.deviceToken;
 
         if (!fcmToken) {
@@ -71,5 +69,12 @@ async function checkAndSendAlarms() {
           console.error(`Error sending message for ${doc.id}:`, messagingError);
         }
       }
+    }
+
+    console.log(`Check completed. Notifications sent: ${sentCount}`);
+  } catch (error) {
+    console.error('Error checking alarms:', error);
+  }
+}
 
 checkAndSendAlarms();
