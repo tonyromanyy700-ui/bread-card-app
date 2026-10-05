@@ -39,6 +39,9 @@ async function checkAndSendAlarms() {
     for (const doc of snapshot.docs) {
       const alarmData = doc.data();
       console.log(`Checking alarm: ID=${doc.id}, alarmTime=${alarmData.alarmTime}`);
+      
+      // طباعة جميع الحقول الموجودة في المستند لمعرفة اسمها الحقيقي
+      console.log(`Document fields available:`, Object.keys(alarmData));
 
       const alarmMinutes = timeToMinutes(alarmData.alarmTime);
 
