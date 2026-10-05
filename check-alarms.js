@@ -39,20 +39,25 @@ async function checkAndSendAlarms() {
     for (const doc of snapshot.docs) {
       const alarmData = doc.data();
       console.log(`Checking alarm: ID=${doc.id}, alarmTime=${alarmData.alarmTime}`);
-      
-      // طباعة جميع الحقول الموجودة في المستند لمعرفة اسمها الحقيقي
-      console.log(`Document fields available:`, Object.keys(alarmData));
+
+      // بحث ذكي يتجاهل المسافات المخفية في أسماء الحقول
+      let fcmToken = null;
+      for (const key of Object.keys(alarmData)) {
+        const cleanKey = key.trim().toLowerCase();
+        if (cleanKey === 'token' || cleanKey === 'fcmtoken' || cleanKey === 'devicetoken') {
+          fcmToken = alarmData[key];
+          break;
+        }
+      }
+
+      if (!fcmToken) {
+        console.error(`Error: Token is missing for alarm ${doc.id}`);
+        continue;
+      }
 
       const alarmMinutes = timeToMinutes(alarmData.alarmTime);
 
       if (alarmMinutes <= currentMinutes) {
-        const fcmToken = alarmData.token || alarmData.fcmToken || alarmData.deviceToken;
-
-        if (!fcmToken) {
-          console.error(`Error: Token is missing for alarm ${doc.id}`);
-          continue;
-        }
-
         console.log(`Alarm matched! Sending notification for token: ${fcmToken}`);
 
         const message = {
