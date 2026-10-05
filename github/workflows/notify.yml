@@ -1,0 +1,27 @@
+name: Check Bread Alarms
+
+on:
+  schedule:
+    # يعمل تلقائياً كل ساعة
+    - cron: '0 * * * *'
+  workflow_dispatch: # يتيح لك تشغيله يدوياً للتجربة من موقع جيت هاب متى شئت
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install firebase-admin
+
+      - name: Run notification script
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+run: node check-alarms.js
