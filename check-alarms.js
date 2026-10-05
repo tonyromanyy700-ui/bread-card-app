@@ -1,55 +1,71 @@
-const admin = require("firebase-admin");
+const admin = require('firebase-admin');
 
-// التهيئة باستخدام مفتاح الأمان السري
-admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
-});
+// تهيئة فايربيز باستخدام متغير البيئة المحفوظ في جيت هاب
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+  });
+}
 
-async function runCheck() {
+const db = admin.firestore();
+
+async function checkAndSendAlarms() {
   try {
-    const db = admin.firestore();
-    const alarmsSnapshot = await db.collection("alarms").get();
+    // الحصول على الوقت الحالي بتوقيت مصر (Africa/Cairo) بصيغة HH:mm
+    const options = {
+      timeZone: 'Africa/Cairo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    };
+    const formatter = new Intl.DateTimeFormat('en-GB', options);
+    const currentTime = formatter.format(new Date());
     
-    // جلب الوقت والتاريخ بتوقيت مصر
-    const now = new Date();
-    const timeOptions = { timeZone: "Africa/Cairo", hour12: false, hour: '2-digit', minute: '2-digit' };
-    const dateOptions = { timeZone: "Africa/Cairo", year: 'numeric', month: '2-digit', day: '2-digit' };
-    
-    const currentTimeStr = now.toLocaleTimeString("en-GB", timeOptions); // مثال: "09:30"
-    const currentDateStr = now.toLocaleDateString("en-CA", dateOptions); // مثال: "2026-10-05"
+    console.log(`Current Cairo Time: ${currentTime}`);
+
+    // جلب التنبيهات غير المرسلة من قاعدة البيانات
+    const snapshot = await db.collection('alarms').where('isSent', '==', false).get();
+
+    if (snapshot.empty) {
+      console.log('No pending alarms found.');
+      return;
+    }
 
     let sentCount = 0;
 
-    for (const doc of alarmsSnapshot.docs) {
-      const data = doc.data();
-      
-      // التحقق من الشروط
-      if (
-        data.token &&
-        data.isClaimed !== true &&
-        data.nextDate === currentDateStr &&
-        data.startTime && data.endTime &&
-        currentTimeStr >= data.startTime &&
-        currentTimeStr <= data.endTime
-      ) {
-        const payload = {
+    for (const doc of snapshot.docs) {
+      const alarmData = doc.data();
+      console.log(`Checking alarm: ID=${doc.id}, alarmTime=${alarmData.alarmTime}`);
+
+      // مقارنة وقت التنبيه المخزن مع الوقت الحالي في مصر
+      if (alarmData.alarmTime === currentTime) {
+        console.log(`Alarm matched! Sending notification for token: ${alarmData.token}`);
+
+        // إرسال الإشعار عبر Firebase Cloud Messaging (FCM)
+        const message = {
+          token: alarmData.token,
           notification: {
-            title: "تنبيه صرف العيش 🥖",
-            body: "ميعاد صرف العيش شغال دلوقتي! متنساش تسجل."
-          },
-          token: data.token
+            title: 'تنبيه حصة العيش والتموين',
+            body: 'ميعاد استحقاق التنبيه الخاص بك قد حان الآن!'
+          }
         };
 
-        await admin.messaging().send(payload);
-        sentCount++;
+        try {
+          await admin.messaging().send(message);
+          // تحديث الحقل لتصبح isSent تساوي true حتى لا يتكرر الإشعار
+          await db.collection('alarms').doc(doc.id).update({ isSent: true });
+          sentCount++;
+          console.log(`Notification sent successfully for alarm ${doc.id}`);
+        } catch (messagingError) {
+          console.error(`Error sending message for ${doc.id}:`, messagingError);
+        }
       }
     }
 
     console.log(`Check completed. Notifications sent: ${sentCount}`);
   } catch (error) {
-    console.error("Error in check script:", error);
-    process.exit(1);
+    console.error('Error checking alarms:', error);
   }
 }
 
-runCheck();
+checkAndSendAlarms();
