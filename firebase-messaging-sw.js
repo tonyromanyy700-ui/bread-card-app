@@ -1,51 +1,54 @@
-// استيراد مكتبات فايربيس للخدمة الخلفية
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+// استيراد مكتبات فايربيس للخدمة الخلفية (متطابقة مع إصدار التطبيق 9.6.1)
+importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyBzCbEv09jVBLyKs2W5PSUHJZ9b5f5wox0",
+  authDomain: "bread-app-fa911.firebaseapp.com",
   projectId: "bread-app-fa911",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  storageBucket: "bread-app-fa911.firebasestorage.app",
+  messagingSenderId: "881646311297",
+  appId: "1:881646311297:web:8de38d7dd1d2533a23fa80",
+  measurementId: "G-D3WF378JCB"
 });
 
 const messaging = firebase.messaging();
 
-// التعامل مع الإشعارات عندما يكون التطبيق في الخلفية أو مغلقاً
+// التعامل مع الإشعارات عندما يكون التطبيق في الخلفية أو مغلقاً تماماً
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  console.log('[firebase-messaging-sw.js] Received background message: ', payload);
 
-  const notificationTitle = payload.notification.title;
+  const notificationTitle = payload.notification?.title || "تنبيه تموين العيش 🍞";
   const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/icon.png', // أيقونة التطبيق
-    tag: 'alarm-notification', // تاج يمنع تكرار الإشعارات ويجعلها ثابتة
+    body: payload.notification?.body || "لديك تحديث جديد بخصوص حصة البطاقة.",
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: 'alarm-notification',
     renotify: true,
-    requireInteraction: true, // يخلي الإشعار ثابت على الشاشة وما يختفيش لوحده لحد ما المستخدم يضغط عليه
-    vibrate: [500, 200, 500, 200, 500, 200, 500], // اهتزاز متكرر وقوي زي المنبه
+    requireInteraction: true, // يظل الإشعار ثابتاً على الشاشة حتى يضغط عليه المستخدم
+    vibrate: [500, 200, 500, 200, 500, 200, 500], // اهتزاز قوي يشبه المنبه
     data: {
-      url: '/' // الصفحة اللي هفتحها لما يضغط على الإشعار
+      url: './'
     }
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// الحدث عند الضغط على الإشعار لتشغيل الصوت الفعلي داخل التطبيق
+// الحدث عند الضغط على الإشعار لفتح التطبيق
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      // لو التطبيق مفتوح، ركز عليه، لو مغلق افتحه
       for (let i = 0; i < windowClients.length; i++) {
-        let client = windowClients.get(i);
-        if (client.url === '/' && 'focus' in client) {
+        let client = windowClients[i];
+        if ('focus' in client) {
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow('./');
       }
     })
   );
