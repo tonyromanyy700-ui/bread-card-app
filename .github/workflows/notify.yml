@@ -1,8 +1,9 @@
 name: Check Bread Alarms
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/15 * * * *' # يتم فحص التنبيهات وتحديثها أوتوماتيكياً كل 15 دقيقة
   workflow_dispatch:
 
 jobs:
